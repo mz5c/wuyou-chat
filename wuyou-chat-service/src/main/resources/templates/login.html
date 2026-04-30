@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 友聊 AI 问答</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .auth-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .auth-header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .auth-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .auth-body {
+            padding: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            border-color: #667eea;
+        }
+        .auth-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .auth-btn:hover {
+            transform: translateY(-2px);
+        }
+        .auth-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error-msg {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 15px;
+            text-align: center;
+            min-height: 20px;
+        }
+        .success-msg {
+            color: #27ae60;
+            font-size: 14px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .toggle-auth {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+        .toggle-auth a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .toggle-auth a:hover {
+            text-decoration: underline;
+        }
+        .home-link {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .home-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .home-link a:hover {
+            text-decoration: underline;
+        }
+        /* Tab switch */
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 25px;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: #f8f9fa;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .auth-tab:first-child {
+            border-radius: 8px 0 0 8px;
+        }
+        .auth-tab:last-child {
+            border-radius: 0 8px 8px 0;
+        }
+        .auth-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .form-content {
+            display: none;
+        }
+        .form-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>友聊 AI 问答</h1>
+            <p>开启您的智能对话之旅</p>
+        </div>
+        <div class="auth-body">
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchTab('login')">登录</div>
+                <div class="auth-tab" onclick="switchTab('register')">注册</div>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="form-content active">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="loginUsername" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="loginPassword" placeholder="请输入密码">
+                </div>
+                <button class="auth-btn" onclick="login()">登录</button>
+                <div class="error-msg" id="loginError"></div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="form-content">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="regUsername" placeholder="请输入用户名 (3-50 个字符)">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="regPassword" placeholder="请输入密码 (至少 6 个字符)">
+                </div>
+                <div class="form-group">
+                    <label>邮箱 (可选)</label>
+                    <input type="email" id="regEmail" placeholder="请输入邮箱">
+                </div>
+                <button class="auth-btn" onclick="register()">注册</button>
+                <div class="error-msg" id="regError"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+
+        // Check if already logged in
+        const token = getCookie('token');
+        if (token) {
+            window.location.href = '/';
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form-content').forEach(f => f.classList.remove('active'));
+
+            if (tab === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+            }
+
+            // Clear error messages
+            document.getElementById('loginError').textContent = '';
+            document.getElementById('regError').textContent = '';
+        }
+
+        function setCookie(name, value, days) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/';
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + '=';
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) === 0) {
+                    return decodeURIComponent(c.substring(nameEQ.length, c.length));
+                }
+            }
+            return null;
+        }
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorEl = document.getElementById('loginError');
+
+            if (!username || !password) {
+                errorEl.textContent = '请输入用户名和密码';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await response.json();
+
+                if (result.code === 200) {
+                    // Set cookie with 2-day expiration
+                    setCookie('token', result.data.accessToken, 2);
+                    // Save user info to localStorage
+                    localStorage.setItem('userInfo', JSON.stringify({
+                        userId: result.data.userId,
+                        username: result.data.username,
+                        nickname: result.data.nickname
+                    }));
+                    window.location.href = '/';
+                } else {
+                    errorEl.textContent = result.message || '登录失败';
+                }
+            } catch (e) {
+                errorEl.textContent = '网络错误，请稍后重试';
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const errorEl = document.getElementById('regError');
+
+            if (!username || !password) {
+                errorEl.textContent = '请输入用户名和密码';
+                return;
+            }
+            if (username.length < 3) {
+                errorEl.textContent = '用户名至少 3 个字符';
+                return;
+            }
+            if (password.length < 6) {
+                errorEl.textContent = '密码至少 6 个字符';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, email: email || undefined })
+                });
+                const result = await response.json();
+
+                if (result.code === 200) {
+                    // Set cookie with 2-day expiration
+                    setCookie('token', result.data.accessToken, 2);
+                    // Save user info to localStorage
+                    localStorage.setItem('userInfo', JSON.stringify({
+                        userId: result.data.userId,
+                        username: result.data.username,
+                        nickname: result.data.nickname
+                    }));
+                    window.location.href = '/';
+                } else {
+                    errorEl.textContent = result.message || '注册失败';
+                }
+            } catch (e) {
+                errorEl.textContent = '网络错误，请稍后重试';
+            }
+        }
+    </script>
+</body>
+</html>
