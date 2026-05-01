@@ -1,0 +1,60 @@
+import type { Session, ChatRecord } from '../types';
+
+const API_BASE = '/api';
+
+function getToken(): string {
+  return localStorage.getItem('accessToken') || '';
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const json = await res.json();
+  if (json.code !== 200) {
+    throw new Error(json.message || '请求失败');
+  }
+  return json.data;
+}
+
+export const api = {
+  // 会话管理
+  createSession(title?: string, roleType?: string) {
+    return request<Session>('/session/create', {
+      method: 'POST',
+      body: JSON.stringify({ title, roleType }),
+    });
+  },
+  listSessions() {
+    return request<Session[]>('/session/list');
+  },
+  getSession(id: number) {
+    return request<Session>(`/session/${id}`);
+  },
+  renameSession(id: number, title: string) {
+    return request<Session>(`/session/${id}/rename`, {
+      method: 'PUT',
+      body: JSON.stringify({ title }),
+    });
+  },
+  updateRole(id: number, roleType: string) {
+    return request<Session>(`/session/${id}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ title: roleType }),
+    });
+  },
+  deleteSession(id: number) {
+    return request<void>(`/session/${id}`, { method: 'DELETE' });
+  },
+
+  // 聊天记录
+  getHistoryBySession(sessionId: number) {
+    return request<ChatRecord[]>(`/chat/record/list/${sessionId}`);
+  },
+};
