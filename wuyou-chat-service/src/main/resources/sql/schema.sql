@@ -18,6 +18,19 @@ CREATE TABLE IF NOT EXISTS sys_user (
     INDEX idx_email (email)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
+-- 会话表
+CREATE TABLE IF NOT EXISTS chat_session (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '会话 ID',
+    user_id     BIGINT NOT NULL COMMENT '用户 ID',
+    title       VARCHAR(200) DEFAULT '新对话' COMMENT '会话标题',
+    role_type   VARCHAR(20) NOT NULL DEFAULT 'GENERAL' COMMENT '角色类型',
+    status      TINYINT DEFAULT 1 COMMENT '状态：1-正常，0-删除',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会话表';
+
 -- 对话记录表
 CREATE TABLE IF NOT EXISTS chat_record (
                                            id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '记录 ID',
@@ -31,3 +44,7 @@ CREATE TABLE IF NOT EXISTS chat_record (
     INDEX idx_user_id (user_id),
     INDEX idx_conversation_id (conversation_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话记录表';
+
+-- chat_record 表新增 session_id 字段
+-- ALTER TABLE chat_record ADD COLUMN session_id BIGINT COMMENT '会话 ID' AFTER conversation_id;
+-- ALTER TABLE chat_record ADD INDEX idx_session_id (session_id);
