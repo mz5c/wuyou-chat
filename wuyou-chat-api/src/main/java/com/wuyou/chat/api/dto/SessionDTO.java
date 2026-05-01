@@ -4,55 +4,43 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 对话记录 DTO
+ * 会话 DTO
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ChatRecordDTO implements Serializable {
+public class SessionDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * 记录 ID
+     * 会话 ID
      */
     private Long id;
 
     /**
-     * 用户 ID
+     * 会话标题
      */
-    private Long userId;
+    private String title;
 
     /**
-     * 问题内容
+     * 角色类型
      */
-    private String question;
+    private String roleType;
 
     /**
-     * AI 回答
+     * 角色显示名称
      */
-    private String answer;
+    private String roleDisplayName;
 
     /**
-     * 思考过程（AI 的推理内容）
-     */
-    private String reasoningContent;
-
-    /**
-     * 会话 ID
-     */
-    private String conversationId;
-
-    /** 会话 ID */
-    private Long sessionId;
-
-    /**
-     * 记录状态
+     * 状态
      */
     private Integer status;
 
@@ -60,4 +48,9 @@ public class ChatRecordDTO implements Serializable {
      * 创建时间
      */
     private LocalDateTime createdAt;
+
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updatedAt;
 }
