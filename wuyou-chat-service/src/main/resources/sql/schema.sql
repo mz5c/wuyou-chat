@@ -37,14 +37,13 @@ CREATE TABLE IF NOT EXISTS chat_record (
                                            user_id BIGINT NOT NULL COMMENT '用户 ID',
                                            question TEXT NOT NULL COMMENT '问题内容',
                                            answer TEXT COMMENT 'AI 回答',
-                                           conversation_id VARCHAR(64) COMMENT '会话 ID',
+                                           conversation_id VARCHAR(64) COMMENT 'OpenAI 会话 ID',
+                                           session_id BIGINT COMMENT '会话 ID',
     status TINYINT DEFAULT 1 COMMENT '记录状态：1-正常，0-删除',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE SET NULL,
     INDEX idx_user_id (user_id),
-    INDEX idx_conversation_id (conversation_id)
+    INDEX idx_conversation_id (conversation_id),
+    INDEX idx_session_id (session_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话记录表';
-
--- chat_record 表新增 session_id 字段
--- ALTER TABLE chat_record ADD COLUMN session_id BIGINT COMMENT '会话 ID' AFTER conversation_id;
--- ALTER TABLE chat_record ADD INDEX idx_session_id (session_id);
