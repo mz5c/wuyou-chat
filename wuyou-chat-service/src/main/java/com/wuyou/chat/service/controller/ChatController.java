@@ -3,6 +3,7 @@ package com.wuyou.chat.service.controller;
 import com.wuyou.chat.api.dto.ChatRequest;
 import com.wuyou.chat.api.dto.ChatResponse;
 import com.wuyou.chat.api.dto.ChatRecordDTO;
+import com.wuyou.chat.api.dto.ChatStreamRequest;
 import com.wuyou.chat.api.dto.Result;
 import com.wuyou.chat.api.service.AiChatService;
 import com.wuyou.chat.service.common.JwtUtil;
@@ -11,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -38,6 +41,23 @@ public class ChatController {
         Long userId = getUserIdFromToken(token);
         ChatResponse response = aiChatService.ask(userId, request);
         return Result.success("问答成功", response);
+    }
+
+    @PostMapping("/ask/stream")
+    @Operation(summary = "流式 AI 问答")
+    public SseEmitter askStream(@RequestHeader("Authorization") String token,
+                                 @RequestBody @Validated ChatStreamRequest request) {
+        Long userId = getUserIdFromToken(token);
+        return (SseEmitter) aiChatService.askStream(userId, request.getSessionId(), request.getMessage());
+    }
+
+    @GetMapping("/record/list/{sessionId}")
+    @Operation(summary = "按会话获取聊天记录")
+    public Result<List<ChatRecordDTO>> getHistoryBySession(@RequestHeader("Authorization") String token,
+                                                            @PathVariable Long sessionId) {
+        Long userId = getUserIdFromToken(token);
+        List<ChatRecordDTO> records = aiChatService.getHistoryBySession(userId, sessionId);
+        return Result.success(records);
     }
 
     @GetMapping("/history")
