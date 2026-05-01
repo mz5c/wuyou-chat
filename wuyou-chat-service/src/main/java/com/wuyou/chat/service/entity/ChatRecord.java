@@ -39,6 +39,9 @@ public class ChatRecord {
      */
     private String conversationId;
 
+    /** 会话 ID */
+    private Long sessionId;
+
     /**
      * 记录状态：1-正常，0-删除
      */
