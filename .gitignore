@@ -60,6 +60,9 @@ CLAUDE.md
 # Docs (generated specs/plans)
 docs/
 
+# Superpowers (brainstorming visual companion)
+.superpowers/
+
 # Worktrees
 .worktrees/
 
