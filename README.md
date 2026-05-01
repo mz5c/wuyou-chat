@@ -119,3 +119,209 @@ npm run dev
 | `/api/user/info` | GET | 用户信息 | 是 |
 
 认证方式：`Authorization: Bearer <access_token>`
+
+## API 测试方法
+
+以下使用 `curl` 测试所有接口，完整的测试流程：
+
+### 1. 注册
+
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"123456","email":"test@example.com"}'
+```
+
+### 2. 登录（获取 Token）
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"123456"}'
+```
+
+返回示例：
+```json
+{
+  "code": 200,
+  "message": "登录成功",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 172800,
+    "userId": 1,
+    "username": "testuser",
+    "nickname": "testuser",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+  }
+}
+```
+
+保存返回的 `accessToken`，后续请求使用 `TOKEN` 环境变量：
+
+```bash
+export TOKEN="eyJhbGciOiJIUzI1NiJ9..."
+```
+
+### 3. 会话管理
+
+**创建会话：**
+
+```bash
+curl -X POST http://localhost:8080/api/session/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{}'
+```
+
+支持指定标题和角色：
+```bash
+curl -X POST http://localhost:8080/api/session/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"title":"我的会话","roleType":"TRANSLATOR"}'
+```
+
+可选角色类型：`GENERAL`（通用助手）、`TRANSLATOR`（翻译助手）、`CODE_REVIEW`（代码审查）、`WRITER`（写作助手）
+
+**获取会话列表：**
+
+```bash
+curl http://localhost:8080/api/session/list \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**获取会话详情：**
+
+```bash
+curl http://localhost:8080/api/session/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**重命名会话：**
+
+```bash
+curl -X PUT http://localhost:8080/api/session/1/rename \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"title":"新标题"}'
+```
+
+**切换角色：**
+
+```bash
+curl -X PUT http://localhost:8080/api/session/1/role \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"title":"CODE_REVIEW"}'
+```
+
+**删除会话：**
+
+```bash
+curl -X DELETE http://localhost:8080/api/session/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 4. AI 问答
+
+**非流式问答（普通模式）：**
+
+```bash
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"question":"你好，请介绍一下你自己"}'
+```
+
+**流式问答（SSE 模式，推荐）：**
+
+使用 `curl` 的 `-N`（no-buffer）参数实时显示流式输出：
+
+```bash
+curl -N -X POST http://localhost:8080/api/chat/ask/stream \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"sessionId":1,"message":"你好，请介绍一下你自己"}'
+```
+
+流式响应格式（Server-Sent Events）：
+```
+event: message
+data: {"content":"你好","type":"text"}
+
+event: message
+data: {"content":"！我是","type":"text"}
+
+event: message
+data: {"content":"AI 助手","type":"text"}
+
+event: done
+data: [DONE]
+
+```
+
+### 5. 聊天记录
+
+**按会话获取聊天记录：**
+
+```bash
+curl http://localhost:8080/api/chat/record/list/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**获取最近对话历史：**
+
+```bash
+curl "http://localhost:8080/api/chat/history?page=1&size=20" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**获取单条记录：**
+
+```bash
+curl http://localhost:8080/api/chat/record/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**删除记录：**
+
+```bash
+curl -X DELETE http://localhost:8080/api/chat/record/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 6. 用户与资料
+
+**获取用户信息：**
+
+```bash
+curl http://localhost:8080/api/user/info \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**更新个人资料：**
+
+```bash
+curl -X PUT http://localhost:8080/api/profile/update \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"nickname":"新昵称","email":"new@example.com"}'
+```
+
+**修改密码：**
+
+```bash
+curl -X POST http://localhost:8080/api/profile/change-password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"oldPassword":"123456","newPassword":"654321"}'
+```
+
+**刷新令牌：**
+
+```bash
+curl -X POST http://localhost:8080/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"token":"<refresh_token>"}'
+```
