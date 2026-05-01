@@ -6,6 +6,7 @@ interface Props {
   activeId: number | null;
   loading: boolean;
   error: string | null;
+  nickname: string;
   onSelect: (id: number) => void;
   onCreate: () => void;
   onRename: (id: number, title: string) => void;
@@ -14,7 +15,7 @@ interface Props {
   onLogout: () => void;
 }
 
-export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate, onRename, onDelete, onRetry, onLogout }: Props) {
+export function Sidebar({ sessions, activeId, loading, error, nickname, onSelect, onCreate, onRename, onDelete, onRetry, onLogout }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -45,6 +46,7 @@ export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate
         )}
       </div>
       <div className="sidebar-footer">
+        <div className="sidebar-user">{nickname}</div>
         <button className="btn-logout" onClick={onLogout} title="退出登录">退出</button>
       </div>
     </aside>

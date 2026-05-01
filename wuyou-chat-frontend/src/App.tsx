@@ -3,7 +3,7 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { ChatArea } from './components/Chat/ChatArea';
 import { LoginPage } from './components/LoginPage';
 import { useSessions } from './hooks/useSessions';
-import { isLoggedIn, clearToken } from './services/api';
+import { isLoggedIn, clearToken, getUserNickname } from './services/api';
 import type { Session } from './types';
 import './styles/global.css';
 
@@ -76,6 +76,7 @@ function App() {
         activeId={activeId}
         loading={loading}
         error={error}
+        nickname={getUserNickname()}
         onSelect={handleSelect}
         onCreate={handleCreate}
         onRename={renameSession}

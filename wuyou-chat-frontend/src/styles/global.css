@@ -44,6 +44,19 @@ body {
 .sidebar-footer {
   border-top: 1px solid #e8e8e8;
   padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-user {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+  padding: 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-logout {

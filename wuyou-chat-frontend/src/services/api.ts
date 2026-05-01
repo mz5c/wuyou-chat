@@ -48,10 +48,25 @@ export function setToken(token: string) {
 
 export function clearToken() {
   localStorage.removeItem('accessToken');
+  localStorage.removeItem('userNickname');
+  localStorage.removeItem('userName');
 }
 
 export function isLoggedIn(): boolean {
   return !!localStorage.getItem('accessToken');
+}
+
+export function saveUserInfo(nickname: string, username: string) {
+  localStorage.setItem('userNickname', nickname);
+  localStorage.setItem('userName', username);
+}
+
+export function getUserNickname(): string {
+  return localStorage.getItem('userNickname') || '';
+}
+
+export function getUserName(): string {
+  return localStorage.getItem('userName') || '';
 }
 
 export const api = {

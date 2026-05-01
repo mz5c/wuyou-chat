@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { api, setToken } from '../services/api';
+import { api, setToken, saveUserInfo } from '../services/api';
 
 interface Props {
   onLogin: () => void;
@@ -24,10 +24,12 @@ export function LoginPage({ onLogin }: Props) {
       if (isRegister) {
         const res = await api.register(username, password, email || undefined);
         setToken(res.accessToken);
+        saveUserInfo(res.nickname, res.username);
         onLogin();
       } else {
         const res = await api.login(username, password);
         setToken(res.accessToken);
+        saveUserInfo(res.nickname, res.username);
         onLogin();
       }
     } catch (err) {
