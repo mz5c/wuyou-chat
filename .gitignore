@@ -60,6 +60,9 @@ CLAUDE.md
 # Docs (generated specs/plans)
 docs/
 
+# Worktrees
+.worktrees/
+
 # Temporary files
 *.tmp
 *.bak
