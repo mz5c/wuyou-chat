@@ -72,11 +72,30 @@ body {
   margin-top: 12px;
 }
 
-.sidebar-loading, .sidebar-empty {
+.sidebar-loading, .sidebar-empty, .sidebar-error {
   font-size: 12px;
   color: #999;
   text-align: center;
   padding: 20px 0;
+}
+
+.sidebar-error p {
+  margin-bottom: 8px;
+  color: #e74c3c;
+}
+
+.btn-retry {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-retry:hover {
+  background: #5a6fd6;
 }
 
 /* Session Item */

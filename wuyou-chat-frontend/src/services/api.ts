@@ -16,7 +16,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  const json = await res.json();
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('未登录或登录已过期，请重新登录');
+    }
+    throw new Error(`请求失败 (${res.status})`);
+  }
+
+  const text = await res.text();
+  if (!text) return undefined as T;
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error('服务器返回数据格式异常');
+  }
+
   if (json.code !== 200) {
     throw new Error(json.message || '请求失败');
   }

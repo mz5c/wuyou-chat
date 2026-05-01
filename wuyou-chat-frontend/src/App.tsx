@@ -7,8 +7,8 @@ import './styles/global.css';
 
 function App() {
   const {
-    sessions, activeId, loading,
-    setActiveId, createSession, renameSession, deleteSession, updateRole,
+    sessions, activeId, loading, error,
+    setActiveId, createSession, renameSession, deleteSession, updateRole, refresh,
   } = useSessions();
 
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
@@ -40,14 +40,10 @@ function App() {
     setCurrentSession(prev => prev ? { ...prev, roleType } : null);
   }, [currentSession, updateRole]);
 
-  const handleFirstMessage = useCallback((sessionId: number) => {
-    import('./services/api').then(({ api }) => {
-      api.listSessions().then(list => {
-        const updated = list.find(s => s.id === sessionId);
-        if (updated) setCurrentSession(updated);
-      });
-    });
-  }, []);
+  const handleFirstMessage = useCallback(() => {
+    // 首次消息后刷新列表以获取更新后的会话标题
+    refresh();
+  }, [refresh]);
 
   return (
     <div className="app-layout">
@@ -55,10 +51,12 @@ function App() {
         sessions={sessions}
         activeId={activeId}
         loading={loading}
+        error={error}
         onSelect={handleSelect}
         onCreate={handleCreate}
         onRename={renameSession}
         onDelete={handleDelete}
+        onRetry={refresh}
       />
       <ChatArea
         session={currentSession}

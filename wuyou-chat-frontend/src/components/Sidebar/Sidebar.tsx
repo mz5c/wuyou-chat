@@ -5,13 +5,15 @@ interface Props {
   sessions: Session[];
   activeId: number | null;
   loading: boolean;
+  error: string | null;
   onSelect: (id: number) => void;
   onCreate: () => void;
   onRename: (id: number, title: string) => void;
   onDelete: (id: number) => void;
+  onRetry: () => void;
 }
 
-export function Sidebar({ sessions, activeId, loading, onSelect, onCreate, onRename, onDelete }: Props) {
+export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate, onRename, onDelete, onRetry }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -21,6 +23,11 @@ export function Sidebar({ sessions, activeId, loading, onSelect, onCreate, onRen
       <div className="sidebar-list">
         {loading ? (
           <div className="sidebar-loading">加载中...</div>
+        ) : error ? (
+          <div className="sidebar-error">
+            <p>{error}</p>
+            <button className="btn-retry" onClick={onRetry}>重试</button>
+          </div>
         ) : sessions.length === 0 ? (
           <div className="sidebar-empty">暂无会话</div>
         ) : (

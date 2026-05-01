@@ -9,7 +9,7 @@ import type { Message, ChatRecord, Session } from '../../types';
 interface Props {
   session: Session | null;
   onRoleChange: (roleType: string) => void;
-  onFirstMessage: (sessionId: number) => void;
+  onFirstMessage: () => void;
 }
 
 export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
@@ -45,7 +45,7 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
     setMessages(prev => [...prev, userMsg]);
 
     if (messages.length === 0) {
-      onFirstMessage(session.id);
+      onFirstMessage();
     }
 
     setStreamingContent('');

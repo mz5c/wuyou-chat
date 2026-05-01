@@ -6,12 +6,16 @@ export function useSessions() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const list = await api.listSessions();
       setSessions(list);
     } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败');
       console.error('Failed to load sessions', err);
     } finally {
       setLoading(false);
@@ -44,7 +48,7 @@ export function useSessions() {
   }, []);
 
   return {
-    sessions, activeId, loading,
+    sessions, activeId, loading, error,
     setActiveId, createSession, renameSession, deleteSession, updateRole, refresh: loadSessions,
   };
 }
