@@ -35,6 +35,12 @@ import com.wuyou.chat.service.mapper.ChatSessionMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -431,6 +437,7 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages, StringBuilder fullContent) {
+        HttpURLConnection conn = null;
         try {
             JSONObject body = new JSONObject();
             body.set("model", model);
@@ -438,54 +445,73 @@ public class AiChatServiceImpl implements AiChatService {
             body.set("temperature", 0.7);
             body.set("stream", true);
 
-            webClient.post()
-                    .uri(apiUrl)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                    .bodyValue(body.toString())
-                    .retrieve()
-                    .bodyToFlux(String.class)
-                    .subscribe(
-                            chunk -> {
-                                try {
-                                    String line = chunk.trim();
-                                    if (line.isEmpty()) return;
-                                    if ("[DONE]".equals(line)) return;
-                                    if (line.startsWith("data: ")) {
-                                        line = line.substring(6).trim();
-                                    }
-                                    if (line.isEmpty() || "[DONE]".equals(line)) return;
-                                    JSONObject json = JSONUtil.parseObj(line);
-                                    cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
-                                    if (choices != null && !choices.isEmpty()) {
-                                        JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
-                                        String content = delta != null ? delta.getStr("content") : null;
-                                        if (StrUtil.isNotBlank(content)) {
-                                            fullContent.append(content);
-                                            JSONObject data = new JSONObject();
-                                            data.set("content", content);
-                                            data.set("type", "text");
-                                            emitter.send(SseEmitter.event().name("message").data(data.toString()));
-                                        }
-                                    }
-                                } catch (IllegalStateException e) {
-                                    log.debug("SSE 连接已关闭（客户端断开）");
-                                } catch (Exception e) {
-                                    log.error("SSE 发送失败", e);
-                                }
-                            },
-                            error -> {
-                                log.error("AI 流式 API 错误", error);
-                                try {
-                                    emitter.send(SseEmitter.event().name("error").data("AI 服务错误"));
-                                } catch (IOException e) { /* ignore */ }
-                                emitter.completeWithError(error);
-                            },
-                            () -> emitter.complete()
-                    );
+            URL url = new URL(apiUrl);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(30000);
+            conn.setReadTimeout(60000);
+
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body.toString().getBytes(StandardCharsets.UTF_8));
+                os.flush();
+            }
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                String errorBody = "Unknown error";
+                try {
+                    errorBody = new String(conn.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+                } catch (Exception ignored) {}
+                log.error("AI API 请求失败: {} {}", responseCode, errorBody);
+                throw new RuntimeException("AI API 返回 " + responseCode);
+            }
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    String trimmed = line.trim();
+                    if (trimmed.isEmpty()) continue;
+                    if (!trimmed.startsWith("data: ")) continue;
+
+                    String data = trimmed.substring(6).trim();
+                    if (data.isEmpty() || "[DONE]".equals(data)) break;
+
+                    try {
+                        JSONObject json = JSONUtil.parseObj(data);
+                        cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
+                        if (choices == null || choices.isEmpty()) continue;
+
+                        JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
+                        String content = delta != null ? delta.getStr("content") : null;
+                        if (StrUtil.isBlank(content)) continue;
+
+                        fullContent.append(content);
+                        JSONObject sendData = new JSONObject();
+                        sendData.set("content", content);
+                        sendData.set("type", "text");
+                        emitter.send(SseEmitter.event().name("message").data(sendData.toString()));
+                    } catch (IllegalStateException e) {
+                        log.debug("SSE 连接已关闭（客户端断开）");
+                        break;
+                    } catch (Exception e) {
+                        log.warn("解析 AI 响应行失败: {}", data, e);
+                    }
+                }
+            }
+
         } catch (Exception e) {
             log.error("调用 AI 流式 API 失败", e);
+            try {
+                emitter.send(SseEmitter.event().name("error").data("AI 服务错误"));
+            } catch (IOException ex) { /* ignore */ }
             emitter.completeWithError(e);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 
