@@ -1,4 +1,4 @@
-import type { Session, ChatRecord } from '../types';
+import type { Session, ChatRecord, LoginResponse } from '../types';
 
 const API_BASE = '/api';
 
@@ -19,6 +19,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
+      clearToken();
+      window.dispatchEvent(new CustomEvent('auth:expired'));
       throw new Error('未登录或登录已过期，请重新登录');
     }
     throw new Error(`请求失败 (${res.status})`);
@@ -40,7 +42,31 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return json.data;
 }
 
+export function setToken(token: string) {
+  localStorage.setItem('accessToken', token);
+}
+
+export function clearToken() {
+  localStorage.removeItem('accessToken');
+}
+
+export function isLoggedIn(): boolean {
+  return !!localStorage.getItem('accessToken');
+}
+
 export const api = {
+  login(username: string, password: string) {
+    return request<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  },
+  register(username: string, password: string, email?: string) {
+    return request<LoginResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, email }),
+    });
+  },
   // 会话管理
   createSession(title?: string, roleType?: string) {
     return request<Session>('/session/create', {

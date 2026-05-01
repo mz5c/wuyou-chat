@@ -43,3 +43,13 @@ export interface Message {
   content: string;
   createdAt: string;
 }
+
+export interface LoginResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  userId: number;
+  username: string;
+  nickname: string;
+  refreshToken: string;
+}

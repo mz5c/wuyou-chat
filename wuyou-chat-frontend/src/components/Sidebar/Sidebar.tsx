@@ -11,9 +11,10 @@ interface Props {
   onRename: (id: number, title: string) => void;
   onDelete: (id: number) => void;
   onRetry: () => void;
+  onLogout: () => void;
 }
 
-export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate, onRename, onDelete, onRetry }: Props) {
+export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate, onRename, onDelete, onRetry, onLogout }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -42,6 +43,9 @@ export function Sidebar({ sessions, activeId, loading, error, onSelect, onCreate
             />
           ))
         )}
+      </div>
+      <div className="sidebar-footer">
+        <button className="btn-logout" onClick={onLogout} title="退出登录">退出</button>
       </div>
     </aside>
   );

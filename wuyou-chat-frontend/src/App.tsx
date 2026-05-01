@@ -1,17 +1,38 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { ChatArea } from './components/Chat/ChatArea';
+import { LoginPage } from './components/LoginPage';
 import { useSessions } from './hooks/useSessions';
+import { isLoggedIn, clearToken } from './services/api';
 import type { Session } from './types';
 import './styles/global.css';
 
 function App() {
+  const [authenticated, setAuthenticated] = useState(isLoggedIn);
+
+  useEffect(() => {
+    const handler = () => setAuthenticated(false);
+    window.addEventListener('auth:expired', handler);
+    return () => window.removeEventListener('auth:expired', handler);
+  }, []);
+
   const {
     sessions, activeId, loading, error,
     setActiveId, createSession, renameSession, deleteSession, updateRole, refresh,
   } = useSessions();
 
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
+
+  const handleLogin = useCallback(() => {
+    setAuthenticated(true);
+    refresh();
+  }, [refresh]);
+
+  const handleLogout = useCallback(() => {
+    clearToken();
+    setAuthenticated(false);
+    setCurrentSession(null);
+  }, []);
 
   const handleSelect = useCallback((id: number) => {
     setActiveId(id);
@@ -41,9 +62,12 @@ function App() {
   }, [currentSession, updateRole]);
 
   const handleFirstMessage = useCallback(() => {
-    // 首次消息后刷新列表以获取更新后的会话标题
     refresh();
   }, [refresh]);
+
+  if (!authenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   return (
     <div className="app-layout">
@@ -57,6 +81,7 @@ function App() {
         onRename={renameSession}
         onDelete={handleDelete}
         onRetry={refresh}
+        onLogout={handleLogout}
       />
       <ChatArea
         session={currentSession}
