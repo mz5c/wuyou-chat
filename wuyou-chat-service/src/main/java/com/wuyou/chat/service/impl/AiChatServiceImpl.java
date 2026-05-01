@@ -369,6 +369,8 @@ public class AiChatServiceImpl implements AiChatService {
                 currentMsg.set("content", message);
                 messages.add(currentMsg);
 
+                StringBuilder fullContent = new StringBuilder();
+
                 if (StrUtil.isBlank(apiUrl)) {
                     // Mock streaming
                     String simulated = "您好！我是 AI 助手。\n\n您问我：" + message;
@@ -379,10 +381,30 @@ public class AiChatServiceImpl implements AiChatService {
                         data.set("content", chunk);
                         data.set("type", "text");
                         emitter.send(SseEmitter.event().name("message").data(data.toString()));
+                        fullContent.append(chunk);
                         Thread.sleep(50);
                     }
                 } else {
-                    callAiApiStream(emitter, messages);
+                    callAiApiStream(emitter, messages, fullContent);
+                }
+
+                // Save chat record after streaming completes
+                ChatRecord record = new ChatRecord();
+                record.setUserId(userId);
+                record.setSessionId(sessionId);
+                record.setQuestion(message);
+                record.setAnswer(fullContent.toString());
+                record.setConversationId(UUID.randomUUID().toString().replace("-", ""));
+                record.setStatus(1);
+                record.setCreatedAt(LocalDateTime.now());
+                chatRecordMapper.insert(record);
+
+                // Auto-title if first message
+                if ("新对话".equals(session.getTitle())) {
+                    String title = message.length() > 30 ? message.substring(0, 30) + "..." : message;
+                    session.setTitle(title);
+                    session.setUpdatedAt(LocalDateTime.now());
+                    chatSessionMapper.updateById(session);
                 }
 
                 emitter.send(SseEmitter.event().name("done").data("[DONE]"));
@@ -405,7 +427,7 @@ public class AiChatServiceImpl implements AiChatService {
         return emitter;
     }
 
-    private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages) {
+    private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages, StringBuilder fullContent) {
         try {
             JSONObject body = new JSONObject();
             body.set("model", model);
@@ -423,13 +445,20 @@ public class AiChatServiceImpl implements AiChatService {
                     .subscribe(
                             chunk -> {
                                 try {
-                                    if ("[DONE]".equals(chunk.trim())) return;
-                                    JSONObject json = JSONUtil.parseObj(chunk);
+                                    String line = chunk.trim();
+                                    if (line.isEmpty()) return;
+                                    if ("[DONE]".equals(line)) return;
+                                    if (line.startsWith("data: ")) {
+                                        line = line.substring(6).trim();
+                                    }
+                                    if (line.isEmpty() || "[DONE]".equals(line)) return;
+                                    JSONObject json = JSONUtil.parseObj(line);
                                     cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
                                     if (choices != null && !choices.isEmpty()) {
                                         JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
                                         String content = delta != null ? delta.getStr("content") : null;
                                         if (StrUtil.isNotBlank(content)) {
+                                            fullContent.append(content);
                                             JSONObject data = new JSONObject();
                                             data.set("content", content);
                                             data.set("type", "text");
