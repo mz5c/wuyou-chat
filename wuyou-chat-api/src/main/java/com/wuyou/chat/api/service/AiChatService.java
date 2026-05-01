@@ -46,4 +46,24 @@ public interface AiChatService {
      * @param recordId 记录 ID
      */
     void deleteRecord(Long userId, Long recordId);
+
+    /**
+     * 流式 AI 问答（SSE）
+     * 返回 SseEmitter 用于流式输出
+     *
+     * @param userId   用户 ID
+     * @param sessionId 会话 ID
+     * @param message  用户消息
+     * @return SseEmitter 对象
+     */
+    Object askStream(Long userId, Long sessionId, String message);
+
+    /**
+     * 按会话 ID 获取聊天记录
+     *
+     * @param userId   用户 ID
+     * @param sessionId 会话 ID
+     * @return 聊天记录列表
+     */
+    List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId);
 }
