@@ -410,6 +410,9 @@ public class AiChatServiceImpl implements AiChatService {
                 emitter.send(SseEmitter.event().name("done").data("[DONE]"));
                 emitter.complete();
 
+            } catch (IllegalStateException e) {
+                log.debug("SSE 流式处理中断（客户端断开连接）");
+                emitter.complete();
             } catch (Exception e) {
                 log.error("SSE 流式处理失败", e);
                 try {
@@ -465,6 +468,8 @@ public class AiChatServiceImpl implements AiChatService {
                                             emitter.send(SseEmitter.event().name("message").data(data.toString()));
                                         }
                                     }
+                                } catch (IllegalStateException e) {
+                                    log.debug("SSE 连接已关闭（客户端断开）");
                                 } catch (Exception e) {
                                     log.error("SSE 发送失败", e);
                                 }
