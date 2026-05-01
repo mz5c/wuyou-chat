@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { RoleSelector } from './RoleSelector';
@@ -15,7 +15,14 @@ interface Props {
 export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
-  const { isStreaming, startStream } = useSSE();
+  const { isStreaming, startStream, stopStream } = useSSE();
+
+  // 用 ref 存储流式内容，避免闭包陈旧问题
+  const streamingRef = useRef('');
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const onFirstMessageRef = useRef(onFirstMessage);
+  onFirstMessageRef.current = onFirstMessage;
 
   useEffect(() => {
     if (!session) {
@@ -34,7 +41,8 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   }, [session?.id]);
 
   const handleSend = useCallback((message: string) => {
-    if (!session) return;
+    const currentSession = sessionRef.current;
+    if (!currentSession) return;
 
     const userMsg: Message = {
       id: `q-${Date.now()}`,
@@ -42,38 +50,54 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       content: message,
       createdAt: new Date().toISOString(),
     };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => {
+      // 首次消息触发标题更新
+      if (prev.length === 0) {
+        onFirstMessageRef.current();
+      }
+      return [...prev, userMsg];
+    });
 
-    if (messages.length === 0) {
-      onFirstMessage();
-    }
-
+    streamingRef.current = '';
     setStreamingContent('');
-    let fullContent = '';
 
     startStream(
-      session.id,
+      currentSession.id,
       message,
+      // onChunk — 直接追加到 ref，并同步 streamingContent 用于渲染
       (chunk) => {
-        fullContent += chunk;
-        setStreamingContent(fullContent);
+        streamingRef.current += chunk;
+        setStreamingContent(streamingRef.current);
       },
+      // onDone — 从 ref 读取最终内容添加到消息列表
       () => {
-        const aiMsg: Message = {
-          id: `a-${Date.now()}`,
-          role: 'assistant',
-          content: fullContent,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, aiMsg]);
+        const finalContent = streamingRef.current;
+        streamingRef.current = '';
         setStreamingContent('');
+        if (finalContent) {
+          setMessages(existing => [...existing, {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            content: finalContent,
+            createdAt: new Date().toISOString(),
+          }]);
+        }
       },
+      // onError
       (err) => {
         console.error('Stream error:', err);
+        streamingRef.current = '';
         setStreamingContent('');
       },
     );
-  }, [session, messages, startStream, onFirstMessage]);
+  }, [startStream]);
+
+  // 组件卸载时停止流式请求
+  useEffect(() => {
+    return () => {
+      stopStream();
+    };
+  }, [stopStream]);
 
   if (!session) {
     return (

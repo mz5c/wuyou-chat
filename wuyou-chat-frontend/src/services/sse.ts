@@ -36,8 +36,10 @@ export function createSSEConnection(
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.substring(6).trim();
+        // SSE 协议中 data: 后面可能有空格也可能没有（Spring SseEmitter 无空格）
+        if (line.startsWith('data:')) {
+          const data = line.substring(5).trim();
+          if (!data) continue;
           if (data === '[DONE]') {
             onDone();
             return;

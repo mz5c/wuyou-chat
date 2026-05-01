@@ -57,6 +57,15 @@ public class AiChatServiceImpl implements AiChatService {
     private final ChatSessionMapper chatSessionMapper;
     private final WebClient webClient;
 
+    /**
+     * 处理 AI 返回内容中的字面量 \n 为实际换行符
+     */
+    private String normalizeNewlines(String content) {
+        if (content == null) return null;
+        // 某些 AI 模型返回的 \n 是字面量（两个字符 \+n），替换为实际换行
+        return content.replace("\\n", "\n").replace("\\r", "\r");
+    }
+
     @Value("${ai.provider.api-url:}")
     private String apiUrl;
 
@@ -438,6 +447,7 @@ public class AiChatServiceImpl implements AiChatService {
 
     private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages, StringBuilder fullContent) {
         HttpURLConnection conn = null;
+        long startTime = System.currentTimeMillis();
         try {
             JSONObject body = new JSONObject();
             body.set("model", model);
@@ -485,9 +495,10 @@ public class AiChatServiceImpl implements AiChatService {
                         if (choices == null || choices.isEmpty()) continue;
 
                         JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
-                        String content = delta != null ? delta.getStr("content") : null;
-                        if (StrUtil.isBlank(content)) continue;
+                        String rawContent = delta != null ? delta.getStr("content") : null;
+                        if (!"\n".equals(rawContent) && StrUtil.isBlank(rawContent)) continue;
 
+                        String content = normalizeNewlines(rawContent);
                         fullContent.append(content);
                         JSONObject sendData = new JSONObject();
                         sendData.set("content", content);
@@ -502,6 +513,8 @@ public class AiChatServiceImpl implements AiChatService {
                 }
             }
 
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("AI 流式调用完成，耗时: {}ms，总字符数: {}", elapsed, fullContent.length());
         } catch (Exception e) {
             log.error("调用 AI 流式 API 失败", e);
             try {
