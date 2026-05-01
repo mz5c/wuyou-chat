@@ -29,6 +29,15 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import com.wuyou.chat.api.enums.RoleType;
+import com.wuyou.chat.service.entity.ChatSession;
+import com.wuyou.chat.service.mapper.ChatSessionMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * AI 聊天服务实现
@@ -39,6 +48,7 @@ public class AiChatServiceImpl implements AiChatService {
 
     private final ChatRecordMapper chatRecordMapper;
     private final UserMapper userMapper;
+    private final ChatSessionMapper chatSessionMapper;
     private final WebClient webClient;
 
     @Value("${ai.provider.api-url:}")
@@ -50,9 +60,10 @@ public class AiChatServiceImpl implements AiChatService {
     @Value("${ai.provider.model:gpt-3.5-turbo}")
     private String model;
 
-    public AiChatServiceImpl(ChatRecordMapper chatRecordMapper, UserMapper userMapper) {
+    public AiChatServiceImpl(ChatRecordMapper chatRecordMapper, UserMapper userMapper, ChatSessionMapper chatSessionMapper) {
         this.chatRecordMapper = chatRecordMapper;
         this.userMapper = userMapper;
+        this.chatSessionMapper = chatSessionMapper;
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
@@ -74,7 +85,7 @@ public class AiChatServiceImpl implements AiChatService {
         boolean isNewConversation = StrUtil.isBlank(request.getConversationId());
 
         // 调用 AI API
-        ChatResponse aiResponse = callAiApi(request.getQuestion(), conversationId, userId);
+        ChatResponse aiResponse = callAiApi(request.getQuestion(), conversationId, userId, null);
 
         // 保存对话记录（保留完整原始内容）
         ChatRecord record = new ChatRecord();
@@ -86,6 +97,20 @@ public class AiChatServiceImpl implements AiChatService {
         record.setCreatedAt(LocalDateTime.now());
 
         chatRecordMapper.insert(record);
+
+        // 自动更新会话标题（首次对话时）
+        Long sessionId = null; // 当前非流式接口暂不传递 sessionId
+        if (isNewConversation && sessionId != null) {
+            String title = request.getQuestion().length() > 30
+                    ? request.getQuestion().substring(0, 30) + "..."
+                    : request.getQuestion();
+            ChatSession session = chatSessionMapper.selectById(sessionId);
+            if (session != null && "新对话".equals(session.getTitle())) {
+                session.setTitle(title);
+                session.setUpdatedAt(LocalDateTime.now());
+                chatSessionMapper.updateById(session);
+            }
+        }
 
         log.info("AI 问答完成，用户：{}, 会话：{}", userId, conversationId);
 
@@ -141,6 +166,19 @@ public class AiChatServiceImpl implements AiChatService {
         chatRecordMapper.updateById(record);
     }
 
+    @Override
+    public List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) throw new BusinessException("用户不存在");
+        List<ChatRecord> records = chatRecordMapper.selectList(
+                new LambdaQueryWrapper<ChatRecord>()
+                        .eq(ChatRecord::getUserId, userId)
+                        .eq(ChatRecord::getSessionId, sessionId)
+                        .eq(ChatRecord::getStatus, 1)
+                        .orderByAsc(ChatRecord::getCreatedAt));
+        return records.stream().map(this::convertToChatRecordDTO).collect(Collectors.toList());
+    }
+
     // 匹配 DeepSeek R1 风格 或通用 <reasoning> 标签
     private static final Pattern REASONING_PATTERN = Pattern.compile(
             "\\s*<reasoning>([\\s\\S]*?)</reasoning>\\s*" +
@@ -151,7 +189,7 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * 调用 AI API
      */
-    private ChatResponse callAiApi(String question, String conversationId, Long userId) {
+    private ChatResponse callAiApi(String question, String conversationId, Long userId, String systemPrompt) {
         // 如果没有配置 API 地址，返回模拟响应
         if (StrUtil.isBlank(apiUrl)) {
             log.warn("AI API 未配置，返回模拟响应");
@@ -166,6 +204,14 @@ public class AiChatServiceImpl implements AiChatService {
         try {
             // 构建 messages 数组 (OpenAI 格式)
             cn.hutool.json.JSONArray messages = new cn.hutool.json.JSONArray();
+
+            // 添加系统提示词（如果存在）
+            if (StrUtil.isNotBlank(systemPrompt)) {
+                JSONObject systemMsg = new JSONObject();
+                systemMsg.set("role", "system");
+                systemMsg.set("content", systemPrompt);
+                messages.add(systemMsg);
+            }
 
             // 如果存在 conversationId，加载历史记录作为上下文
             if (StrUtil.isNotBlank(conversationId)) {
@@ -266,6 +312,147 @@ public class AiChatServiceImpl implements AiChatService {
                 .answer(cleanAnswer)
                 .reasoningContent(reasoningContent)
                 .build();
+    }
+
+    @Override
+    public SseEmitter askStream(Long userId, Long sessionId, String message) {
+        User user = userMapper.selectById(userId);
+        if (user == null) throw new BusinessException("用户不存在");
+
+        ChatSession session = chatSessionMapper.selectById(sessionId);
+        if (session == null || !session.getUserId().equals(userId) || session.getStatus() == 0) {
+            throw new BusinessException("会话不存在");
+        }
+
+        String systemPrompt;
+        try {
+            systemPrompt = RoleType.valueOf(session.getRoleType()).getSystemPrompt();
+        } catch (IllegalArgumentException e) {
+            systemPrompt = null;
+        }
+        final String sp = systemPrompt;
+
+        SseEmitter emitter = new SseEmitter(300_000L);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Build messages with history
+                cn.hutool.json.JSONArray messages = new cn.hutool.json.JSONArray();
+                if (StrUtil.isNotBlank(sp)) {
+                    JSONObject systemMsg = new JSONObject();
+                    systemMsg.set("role", "system");
+                    systemMsg.set("content", sp);
+                    messages.add(systemMsg);
+                }
+
+                // Load history (up to 10 records)
+                List<ChatRecord> history = chatRecordMapper.selectList(
+                        new LambdaQueryWrapper<ChatRecord>()
+                                .eq(ChatRecord::getSessionId, sessionId)
+                                .eq(ChatRecord::getStatus, 1)
+                                .orderByAsc(ChatRecord::getCreatedAt)
+                                .last("LIMIT 10"));
+                for (ChatRecord record : history) {
+                    JSONObject um = new JSONObject();
+                    um.set("role", "user");
+                    um.set("content", record.getQuestion());
+                    messages.add(um);
+                    JSONObject am = new JSONObject();
+                    am.set("role", "assistant");
+                    am.set("content", record.getAnswer());
+                    messages.add(am);
+                }
+
+                // Add current question
+                JSONObject currentMsg = new JSONObject();
+                currentMsg.set("role", "user");
+                currentMsg.set("content", message);
+                messages.add(currentMsg);
+
+                if (StrUtil.isBlank(apiUrl)) {
+                    // Mock streaming
+                    String simulated = "您好！我是 AI 助手。\n\n您问我：" + message;
+                    for (int i = 0; i < simulated.length(); i += 5) {
+                        int end = Math.min(i + 5, simulated.length());
+                        String chunk = simulated.substring(i, end);
+                        JSONObject data = new JSONObject();
+                        data.set("content", chunk);
+                        data.set("type", "text");
+                        emitter.send(SseEmitter.event().name("message").data(data.toString()));
+                        Thread.sleep(50);
+                    }
+                } else {
+                    callAiApiStream(emitter, messages);
+                }
+
+                emitter.send(SseEmitter.event().name("done").data("[DONE]"));
+                emitter.complete();
+
+            } catch (Exception e) {
+                log.error("SSE 流式处理失败", e);
+                try {
+                    emitter.send(SseEmitter.event().name("error").data("AI 服务暂时不可用"));
+                } catch (IOException ex) { /* ignore */ }
+                emitter.completeWithError(e);
+            }
+        });
+
+        emitter.onTimeout(() -> {
+            log.warn("SSE 连接超时");
+            emitter.complete();
+        });
+
+        return emitter;
+    }
+
+    private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages) {
+        try {
+            JSONObject body = new JSONObject();
+            body.set("model", model);
+            body.set("messages", messages);
+            body.set("temperature", 0.7);
+            body.set("stream", true);
+
+            webClient.post()
+                    .uri(apiUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .bodyValue(body.toString())
+                    .retrieve()
+                    .bodyToFlux(String.class)
+                    .subscribe(
+                            chunk -> {
+                                try {
+                                    if ("[DONE]".equals(chunk.trim())) return;
+                                    JSONObject json = JSONUtil.parseObj(chunk);
+                                    cn.hutool.json.JSONArray choices = json.getJSONArray("choices");
+                                    if (choices != null && !choices.isEmpty()) {
+                                        JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
+                                        String content = delta != null ? delta.getStr("content") : null;
+                                        if (StrUtil.isNotBlank(content)) {
+                                            JSONObject data = new JSONObject();
+                                            data.set("content", content);
+                                            data.set("type", "text");
+                                            emitter.send(SseEmitter.event().name("message").data(data.toString()));
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    log.error("SSE 发送失败", e);
+                                }
+                            },
+                            error -> {
+                                log.error("AI 流式 API 错误", error);
+                                try {
+                                    emitter.send(SseEmitter.event().name("error").data("AI 服务错误"));
+                                } catch (IOException e) { /* ignore */ }
+                                emitter.completeWithError(error);
+                            },
+                            () -> emitter.complete()
+                    );
+        } catch (Exception e) {
+            log.error("调用 AI 流式 API 失败", e);
+            emitter.completeWithError(e);
+        }
     }
 
     /**
