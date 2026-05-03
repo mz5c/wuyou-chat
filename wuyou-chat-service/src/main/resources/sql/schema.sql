@@ -47,3 +47,23 @@ CREATE TABLE IF NOT EXISTS chat_record (
     INDEX idx_conversation_id (conversation_id),
     INDEX idx_session_id (session_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话记录表';
+
+-- ==================== 多模型配置 ====================
+
+CREATE TABLE IF NOT EXISTS ai_model_config (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '配置 ID',
+    name        VARCHAR(50) NOT NULL COMMENT '显示名称（如 通义千问 3.5）',
+    provider    VARCHAR(50) NOT NULL COMMENT '厂商（如 qwen, openai, deepseek）',
+    api_url     VARCHAR(500) NOT NULL COMMENT 'API 地址',
+    api_key     VARCHAR(500) NOT NULL COMMENT 'API Key',
+    model       VARCHAR(100) NOT NULL COMMENT '模型名（如 qwen3.5-122b）',
+    is_enabled  TINYINT DEFAULT 1 COMMENT '是否启用：1-启用，0-禁用',
+    sort_order  INT DEFAULT 0 COMMENT '排序号',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 模型配置表';
+
+ALTER TABLE sys_user ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user' COMMENT '角色：admin-管理员，user-普通用户';
+ALTER TABLE chat_record ADD COLUMN IF NOT EXISTS model_id BIGINT COMMENT '使用的模型配置 ID';
+ALTER TABLE chat_record ADD INDEX IF NOT EXISTS idx_model_id (model_id);
+ALTER TABLE chat_session ADD COLUMN IF NOT EXISTS model_id BIGINT COMMENT '会话默认模型配置 ID';
