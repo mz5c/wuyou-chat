@@ -33,7 +33,7 @@ public class SessionController {
     public Result<SessionDTO> create(@RequestHeader("Authorization") String token,
                                      @RequestBody SessionCreateRequest request) {
         Long userId = getUserId(token);
-        SessionDTO session = sessionService.createSession(userId, request.getTitle(), request.getRoleType());
+        SessionDTO session = sessionService.createSession(userId, request.getTitle(), request.getRoleType(), request.getModelId());
         return Result.success("创建成功", session);
     }
 

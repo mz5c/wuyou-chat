@@ -67,6 +67,15 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
+    public UserInfoResponse getUserInfo(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return convertToUserInfoResponse(user);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         User user = userMapper.selectById(userId);
@@ -90,6 +99,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .avatar(user.getAvatar())
+                .role(user.getRole())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .build();

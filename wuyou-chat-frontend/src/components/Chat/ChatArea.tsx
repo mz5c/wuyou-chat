@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { RoleSelector } from './RoleSelector';
+import { ModelSelector } from './ModelSelector';
 import { useSSE } from '../../hooks/useSSE';
 import { api } from '../../services/api';
 import type { Message, ChatRecord, Session } from '../../types';
@@ -16,6 +17,8 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const { isStreaming, startStream, stopStream } = useSSE();
+
+  const [currentModelId, setCurrentModelId] = useState<number | null>(null);
 
   // 用 ref 存储流式内容，避免闭包陈旧问题
   const streamingRef = useRef('');
@@ -38,6 +41,10 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       }
       setMessages(history);
     }).catch(console.error);
+  }, [session?.id]);
+
+  useEffect(() => {
+    setCurrentModelId(session?.modelId ?? null);
   }, [session?.id]);
 
   const handleSend = useCallback((message: string) => {
@@ -89,8 +96,9 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
         streamingRef.current = '';
         setStreamingContent('');
       },
+      currentModelId,
     );
-  }, [startStream]);
+  }, [startStream, currentModelId]);
 
   // 组件卸载时停止流式请求
   useEffect(() => {
@@ -114,7 +122,10 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
     <div className="chat-area">
       <div className="chat-header">
         <span className="chat-title">{session.title}</span>
-        <RoleSelector currentRole={session.roleType} onChange={onRoleChange} />
+        <div className="chat-header-controls">
+          <ModelSelector currentModelId={currentModelId} onChange={setCurrentModelId} />
+          <RoleSelector currentRole={session.roleType} onChange={onRoleChange} />
+        </div>
       </div>
       <MessageList messages={messages} streamingContent={streamingContent} isStreaming={isStreaming} />
       <ChatInput onSend={handleSend} disabled={isStreaming} />

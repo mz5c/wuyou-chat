@@ -1,8 +1,17 @@
+export interface ModelInfo {
+  id: number;
+  name: string;
+  provider: string;
+  model: string;
+  sortOrder: number;
+}
+
 export interface Session {
   id: number;
   title: string;
   roleType: string;
   roleDisplayName: string;
+  modelId?: number;
   status: number;
   createdAt: string;
   updatedAt: string;

@@ -43,6 +43,11 @@ public class ChatRecord {
     private Long sessionId;
 
     /**
+     * 使用的模型配置 ID
+     */
+    private Long modelId;
+
+    /**
      * 记录状态：1-正常，0-删除
      */
     private Integer status;

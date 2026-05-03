@@ -7,42 +7,52 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 会话实体
+ * AI 模型配置实体
  */
 @Data
-@TableName("chat_session")
-public class ChatSession {
+@TableName("ai_model_config")
+public class AiModelConfig {
 
     /**
-     * 会话 ID
+     * 配置 ID
      */
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 用户 ID
+     * 配置名称
      */
-    private Long userId;
+    private String name;
 
     /**
-     * 会话标题
+     * 供应商
      */
-    private String title;
+    private String provider;
 
     /**
-     * 角色类型
+     * API 地址
      */
-    private String roleType;
+    private String apiUrl;
 
     /**
-     * 会话默认模型配置 ID
+     * API 密钥
      */
-    private Long modelId;
+    private String apiKey;
 
     /**
-     * 状态：1-正常，0-删除
+     * 模型名称
      */
-    private Integer status;
+    private String model;
+
+    /**
+     * 是否启用：1-启用，0-禁用
+     */
+    private Integer isEnabled;
+
+    /**
+     * 排序序号
+     */
+    private Integer sortOrder;
 
     /**
      * 创建时间

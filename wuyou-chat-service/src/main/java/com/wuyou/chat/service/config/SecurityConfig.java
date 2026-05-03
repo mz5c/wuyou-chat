@@ -1,6 +1,7 @@
 package com.wuyou.chat.service.config;
 
 import com.wuyou.chat.service.common.JwtUtil;
+import com.wuyou.chat.service.mapper.UserMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,9 +22,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
-    public SecurityConfig(JwtUtil jwtUtil) {
+    public SecurityConfig(JwtUtil jwtUtil, UserMapper userMapper) {
         this.jwtUtil = jwtUtil;
+        this.userMapper = userMapper;
     }
 
     @Bean
@@ -60,11 +63,13 @@ public class SecurityConfig {
                         "/login",
                         "/favicon.ico"
                 ).permitAll()
+                // 管理员接口需要 ADMIN 角色
+                .antMatchers("/api/admin/**").hasRole("ADMIN")
                 // 其他接口需要认证
                 .anyRequest().authenticated()
                 .and()
                 // 添加 JWT 过滤器
-                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userMapper), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

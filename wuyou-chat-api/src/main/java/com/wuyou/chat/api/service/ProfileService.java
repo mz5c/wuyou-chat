@@ -19,6 +19,14 @@ public interface ProfileService {
     UserInfoResponse updateProfile(Long userId, String nickname, String email, String avatar);
 
     /**
+     * 获取用户信息
+     *
+     * @param userId 用户 ID
+     * @return 用户信息
+     */
+    UserInfoResponse getUserInfo(Long userId);
+
+    /**
      * 修改密码
      *
      * @param userId      用户 ID

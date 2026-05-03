@@ -1,4 +1,4 @@
-import type { Session, ChatRecord, LoginResponse } from '../types';
+import type { Session, ChatRecord, LoginResponse, ModelInfo } from '../types';
 
 const API_BASE = '/api';
 
@@ -50,6 +50,15 @@ export function clearToken() {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('userNickname');
   localStorage.removeItem('userName');
+  localStorage.removeItem('userRole');
+}
+
+export function getUserRole(): string {
+  return localStorage.getItem('userRole') || 'user';
+}
+
+export function saveUserRole(role: string) {
+  localStorage.setItem('userRole', role || 'user');
 }
 
 export function isLoggedIn(): boolean {
@@ -83,10 +92,10 @@ export const api = {
     });
   },
   // 会话管理
-  createSession(title?: string, roleType?: string) {
+  createSession(title?: string, roleType?: string, modelId?: number) {
     return request<Session>('/session/create', {
       method: 'POST',
-      body: JSON.stringify({ title, roleType }),
+      body: JSON.stringify({ title, roleType, modelId }),
     });
   },
   listSessions() {
@@ -114,5 +123,35 @@ export const api = {
   // 聊天记录
   getHistoryBySession(sessionId: number) {
     return request<ChatRecord[]>(`/chat/record/list/${sessionId}`);
+  },
+
+  // 用户信息
+  getUserInfo() {
+    return request<{ nickname: string; username: string; email?: string; role?: string }>('/profile');
+  },
+
+  // 模型管理
+  getEnabledModels() {
+    return request<ModelInfo[]>('/models/enabled');
+  },
+  getAllModels() {
+    return request<any[]>('/admin/models');
+  },
+  addModel(data: any) {
+    return request<void>('/admin/models', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateModel(id: number, data: any) {
+    return request<void>(`/admin/models/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteModel(id: number) {
+    return request<void>(`/admin/models/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

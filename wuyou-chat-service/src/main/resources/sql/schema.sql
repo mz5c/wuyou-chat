@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     password VARCHAR(100) NOT NULL COMMENT '密码 (加密)',
     email VARCHAR(100) COMMENT '邮箱',
     nickname VARCHAR(50) COMMENT '昵称',
+    role VARCHAR(20) DEFAULT 'user' COMMENT '角色：admin-管理员，user-普通用户',
     avatar VARCHAR(255) COMMENT '头像 URL',
     status TINYINT DEFAULT 1 COMMENT '账户状态：1-正常，0-禁用',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS chat_session (
     user_id     BIGINT NOT NULL COMMENT '用户 ID',
     title       VARCHAR(200) DEFAULT '新对话' COMMENT '会话标题',
     role_type   VARCHAR(20) NOT NULL DEFAULT 'GENERAL' COMMENT '角色类型',
+    model_id    BIGINT COMMENT '会话默认模型配置 ID',
     status      TINYINT DEFAULT 1 COMMENT '状态：1-正常，0-删除',
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS chat_record (
                                            answer TEXT COMMENT 'AI 回答',
                                            conversation_id VARCHAR(64) COMMENT 'OpenAI 会话 ID',
                                            session_id BIGINT COMMENT '会话 ID',
+    model_id BIGINT COMMENT '使用的模型配置 ID',
     status TINYINT DEFAULT 1 COMMENT '记录状态：1-正常，0-删除',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE,
@@ -47,3 +50,50 @@ CREATE TABLE IF NOT EXISTS chat_record (
     INDEX idx_conversation_id (conversation_id),
     INDEX idx_session_id (session_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对话记录表';
+
+-- ==================== 多模型配置 ====================
+
+CREATE TABLE IF NOT EXISTS ai_model_config (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '配置 ID',
+    name        VARCHAR(50) NOT NULL COMMENT '显示名称（如 通义千问 3.5）',
+    provider    VARCHAR(50) NOT NULL COMMENT '厂商（如 qwen, openai, deepseek）',
+    api_url     VARCHAR(500) NOT NULL COMMENT 'API 地址',
+    api_key     VARCHAR(500) NOT NULL COMMENT 'API Key',
+    model       VARCHAR(100) NOT NULL COMMENT '模型名（如 qwen3.5-122b）',
+    is_enabled  TINYINT DEFAULT 1 COMMENT '是否启用：1-启用，0-禁用',
+    sort_order  INT DEFAULT 0 COMMENT '排序号',
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 模型配置表';
+
+-- 安全添加列和索引（兼容 MySQL，可用于升级已有数据库）
+DELIMITER $$
+DROP PROCEDURE IF EXISTS add_col_if_not_exists $$
+CREATE PROCEDURE add_col_if_not_exists(
+    IN p_table VARCHAR(100), IN p_column VARCHAR(100), IN p_col_def VARCHAR(1000))
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_table AND COLUMN_NAME = p_column
+    ) THEN
+        SET @stmt = CONCAT('ALTER TABLE ', p_table, ' ADD COLUMN ', p_column, ' ', p_col_def);
+        PREPARE stmt FROM @stmt;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+    END IF;
+END$$
+DELIMITER ;
+
+CALL add_col_if_not_exists('sys_user', 'role', 'VARCHAR(20) DEFAULT ''user'' COMMENT ''角色：admin-管理员，user-普通用户''');
+CALL add_col_if_not_exists('chat_record', 'model_id', 'BIGINT COMMENT ''使用的模型配置 ID''');
+CALL add_col_if_not_exists('chat_session', 'model_id', 'BIGINT COMMENT ''会话默认模型配置 ID''');
+
+DROP PROCEDURE IF EXISTS add_col_if_not_exists;
+
+-- 安全添加索引
+SET @idx_exists = (SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chat_record' AND INDEX_NAME = 'idx_model_id');
+SET @stmt = IF(@idx_exists = 0, 'ALTER TABLE chat_record ADD INDEX idx_model_id (model_id)', 'SELECT 1');
+PREPARE stmt FROM @stmt;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

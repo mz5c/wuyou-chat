@@ -34,7 +34,7 @@ public class SessionServiceImpl implements SessionService {
 
     @Override
     @Transactional
-    public SessionDTO createSession(Long userId, String title, String roleType) {
+    public SessionDTO createSession(Long userId, String title, String roleType, Long modelId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException("用户不存在");
@@ -47,6 +47,7 @@ public class SessionServiceImpl implements SessionService {
         session.setUserId(userId);
         session.setTitle(sessionTitle);
         session.setRoleType(role);
+        session.setModelId(modelId);
         session.setStatus(1);
         session.setCreatedAt(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
@@ -128,6 +129,7 @@ public class SessionServiceImpl implements SessionService {
                 .title(session.getTitle())
                 .roleType(session.getRoleType())
                 .roleDisplayName(roleType.getDisplayName())
+                .modelId(session.getModelId())
                 .status(session.getStatus())
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())

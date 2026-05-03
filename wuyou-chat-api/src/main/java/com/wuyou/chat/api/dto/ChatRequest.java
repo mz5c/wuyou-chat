@@ -22,4 +22,9 @@ public class ChatRequest implements Serializable {
      * 会话 ID（可选，用于保持上下文）
      */
     private String conversationId;
+
+    /**
+     * 使用的 AI 模型配置 ID，不传则使用默认
+     */
+    private Long modelId;
 }

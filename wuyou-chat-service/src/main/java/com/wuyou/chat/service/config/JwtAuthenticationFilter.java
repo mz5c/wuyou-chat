@@ -2,6 +2,8 @@ package com.wuyou.chat.service.config;
 
 import com.wuyou.chat.service.common.JwtUtil;
 import com.wuyou.chat.service.dto.UserDetailsImpl;
+import com.wuyou.chat.service.entity.User;
+import com.wuyou.chat.service.mapper.UserMapper;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,9 +25,11 @@ import java.util.Collections;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserMapper userMapper) {
         this.jwtUtil = jwtUtil;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -38,9 +42,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = jwtUtil.getUserIdFromToken(token);
             String username = jwtUtil.getUsernameFromToken(token);
 
+            // 从数据库查询用户角色
+            User user = userMapper.selectById(userId);
+            String role = (user != null && user.getRole() != null) ? user.getRole() : "user";
+
             // 创建认证信息
             UserDetailsImpl userDetails = new UserDetailsImpl(userId, username, null,
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase())),
+                    role);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);

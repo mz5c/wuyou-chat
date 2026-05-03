@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { api, setToken, saveUserInfo } from '../services/api';
+import { api, setToken, saveUserInfo, saveUserRole } from '../services/api';
 
 interface Props {
   onLogin: () => void;
@@ -21,17 +21,21 @@ export function LoginPage({ onLogin }: Props) {
     setLoading(true);
 
     try {
+      let loginRes: { accessToken: string; nickname: string; username: string };
       if (isRegister) {
-        const res = await api.register(username, password, email || undefined);
-        setToken(res.accessToken);
-        saveUserInfo(res.nickname, res.username);
-        onLogin();
+        loginRes = await api.register(username, password, email || undefined);
       } else {
-        const res = await api.login(username, password);
-        setToken(res.accessToken);
-        saveUserInfo(res.nickname, res.username);
-        onLogin();
+        loginRes = await api.login(username, password);
       }
+      setToken(loginRes.accessToken);
+      saveUserInfo(loginRes.nickname, loginRes.username);
+      try {
+        const userInfo = await api.getUserInfo();
+        saveUserRole(userInfo.role || 'user');
+      } catch {
+        saveUserRole('user');
+      }
+      onLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
     } finally {

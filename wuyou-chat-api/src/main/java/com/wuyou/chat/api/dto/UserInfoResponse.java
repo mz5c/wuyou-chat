@@ -39,6 +39,11 @@ public class UserInfoResponse implements Serializable {
     private String email;
 
     /**
+     * 用户角色
+     */
+    private String role;
+
+    /**
      * 头像 URL
      */
     private String avatar;

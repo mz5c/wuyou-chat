@@ -54,9 +54,10 @@ public interface AiChatService {
      * @param userId   用户 ID
      * @param sessionId 会话 ID
      * @param message  用户消息
+     * @param modelId  模型配置 ID（可选，不传则使用默认）
      * @return SseEmitter 对象
      */
-    Object askStream(Long userId, Long sessionId, String message);
+    Object askStream(Long userId, Long sessionId, String message, Long modelId);
 
     /**
      * 按会话 ID 获取聊天记录

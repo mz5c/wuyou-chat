@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
@@ -46,9 +47,11 @@ public class ChatController {
     @PostMapping("/ask/stream")
     @Operation(summary = "流式 AI 问答")
     public SseEmitter askStream(@RequestHeader("Authorization") String token,
-                                 @RequestBody @Validated ChatStreamRequest request) {
+                                 @RequestBody @Validated ChatStreamRequest request,
+                                 HttpServletResponse response) {
+        response.setBufferSize(0);  // 禁用 Tomcat 响应缓冲区以支持流式输出
         Long userId = getUserIdFromToken(token);
-        return (SseEmitter) aiChatService.askStream(userId, request.getSessionId(), request.getMessage());
+        return (SseEmitter) aiChatService.askStream(userId, request.getSessionId(), request.getMessage(), request.getModelId());
     }
 
     @GetMapping("/record/list/{sessionId}")

@@ -30,6 +30,11 @@ public class User {
     private String password;
 
     /**
+     * 角色：admin-管理员，user-普通用户
+     */
+    private String role;
+
+    /**
      * 邮箱
      */
     private String email;

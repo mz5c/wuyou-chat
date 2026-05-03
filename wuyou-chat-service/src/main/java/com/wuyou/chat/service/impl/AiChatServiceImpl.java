@@ -44,6 +44,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.wuyou.chat.api.service.ModelConfigService;
+
+import java.util.Map;
 
 /**
  * AI 聊天服务实现
@@ -56,6 +59,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final UserMapper userMapper;
     private final ChatSessionMapper chatSessionMapper;
     private final WebClient webClient;
+    private final ModelConfigService modelConfigService;
 
     /**
      * 处理 AI 返回内容中的字面量 \n 为实际换行符
@@ -75,13 +79,28 @@ public class AiChatServiceImpl implements AiChatService {
     @Value("${ai.provider.model:gpt-3.5-turbo}")
     private String model;
 
-    public AiChatServiceImpl(ChatRecordMapper chatRecordMapper, UserMapper userMapper, ChatSessionMapper chatSessionMapper) {
+    public AiChatServiceImpl(ChatRecordMapper chatRecordMapper, UserMapper userMapper,
+                              ChatSessionMapper chatSessionMapper, ModelConfigService modelConfigService) {
         this.chatRecordMapper = chatRecordMapper;
         this.userMapper = userMapper;
         this.chatSessionMapper = chatSessionMapper;
+        this.modelConfigService = modelConfigService;
         this.webClient = WebClient.builder()
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
                 .build();
+    }
+
+    /**
+     * 解析模型配置：优先使用指定的 modelId，否则返回默认模型
+     */
+    private Map<String, Object> resolveModelConfig(Long modelId) {
+        if (modelId != null) {
+            Map<String, Object> config = modelConfigService.getModelById(modelId);
+            if (config != null && config.containsKey("apiUrl") && StrUtil.isNotBlank((String) config.get("apiUrl"))) {
+                return config;
+            }
+        }
+        return modelConfigService.getDefaultModel();
     }
 
     @Override
@@ -92,6 +111,9 @@ public class AiChatServiceImpl implements AiChatService {
             throw new BusinessException("用户不存在");
         }
 
+        // 解析模型配置
+        Map<String, Object> modelConfig = resolveModelConfig(request.getModelId());
+
         // 生成或获取会话 ID
         String conversationId = StrUtil.isNotBlank(request.getConversationId())
                 ? request.getConversationId()
@@ -100,7 +122,7 @@ public class AiChatServiceImpl implements AiChatService {
         boolean isNewConversation = StrUtil.isBlank(request.getConversationId());
 
         // 调用 AI API
-        ChatResponse aiResponse = callAiApi(request.getQuestion(), conversationId, userId, null);
+        ChatResponse aiResponse = callAiApi(request.getQuestion(), conversationId, userId, null, modelConfig);
 
         // 保存对话记录（保留完整原始内容）
         ChatRecord record = new ChatRecord();
@@ -108,6 +130,7 @@ public class AiChatServiceImpl implements AiChatService {
         record.setQuestion(request.getQuestion());
         record.setAnswer(aiResponse.getAnswer());
         record.setConversationId(conversationId);
+        record.setModelId(request.getModelId());
         record.setStatus(1);
         record.setCreatedAt(LocalDateTime.now());
 
@@ -204,14 +227,19 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * 调用 AI API
      */
-    private ChatResponse callAiApi(String question, String conversationId, Long userId, String systemPrompt) {
+    private ChatResponse callAiApi(String question, String conversationId, Long userId, String systemPrompt,
+                                    Map<String, Object> modelConfig) {
+        String dynamicApiUrl = (modelConfig != null) ? (String) modelConfig.get("apiUrl") : apiUrl;
+        String dynamicApiKey = (modelConfig != null) ? (String) modelConfig.get("apiKey") : apiKey;
+        String dynamicModel = (modelConfig != null) ? (String) modelConfig.get("model") : model;
+
         // 如果没有配置 API 地址，返回模拟响应
-        if (StrUtil.isBlank(apiUrl)) {
+        if (StrUtil.isBlank(dynamicApiUrl)) {
             log.warn("AI API 未配置，返回模拟响应");
             log.info("AI 配置检查 - URL: {}, Model: {}, API Key 配置：{}",
-                    apiUrl != null ? apiUrl : "未配置",
-                    model,
-                    (apiKey != null && !apiKey.isEmpty()) ? "已配置" : "未配置");
+                    dynamicApiUrl != null ? dynamicApiUrl : "未配置",
+                    dynamicModel,
+                    (dynamicApiKey != null && !dynamicApiKey.isEmpty()) ? "已配置" : "未配置");
             String simulated = "您好！我是 AI 助手。您问我：" + question + "\n\n注意：请在 application.yml 中配置 AI API 来使用真实的 AI 服务。";
             return ChatResponse.builder().answer(simulated).build();
         }
@@ -261,16 +289,16 @@ public class AiChatServiceImpl implements AiChatService {
             messages.add(currentMsg);
 
             JSONObject body = new JSONObject();
-            body.set("model", model);
+            body.set("model", dynamicModel);
             body.set("messages", messages);
             body.set("temperature", 0.7);
 
-            log.info("调用 AI API: {}", apiUrl);
+            log.info("调用 AI API: {}", dynamicApiUrl);
 
             // 发送请求（设置 30 秒超时）
             String response = webClient.post()
-                    .uri(apiUrl)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .uri(dynamicApiUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + dynamicApiKey)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .bodyValue(body.toString())
                     .retrieve()
@@ -299,7 +327,7 @@ public class AiChatServiceImpl implements AiChatService {
 
         } catch (WebClientResponseException e) {
             log.error("AI API 请求失败：{} {}", e.getStatusCode(), e.getResponseBodyAsString());
-            log.error("AI API 配置信息 - URL: {}, Model: {}", apiUrl, model);
+            log.error("AI API 配置信息 - URL: {}, Model: {}", dynamicApiUrl, dynamicModel);
             return ChatResponse.builder().answer("AI 服务暂时不可用，请稍后重试。").build();
         } catch (Exception e) {
             log.error("调用 AI API 失败", e);
@@ -330,7 +358,7 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
-    public SseEmitter askStream(Long userId, Long sessionId, String message) {
+    public SseEmitter askStream(Long userId, Long sessionId, String message, Long modelId) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
 
@@ -348,6 +376,10 @@ public class AiChatServiceImpl implements AiChatService {
         final String sp = systemPrompt;
 
         SseEmitter emitter = new SseEmitter(300_000L);
+
+        // 解析模型配置（在 lambda 外部捕获，避免闭包问题）
+        Map<String, Object> modelConfig = resolveModelConfig(modelId);
+        final Map<String, Object> mc = modelConfig;
 
         CompletableFuture.runAsync(() -> {
             try {
@@ -386,7 +418,10 @@ public class AiChatServiceImpl implements AiChatService {
 
                 StringBuilder fullContent = new StringBuilder();
 
-                if (StrUtil.isBlank(apiUrl)) {
+                // 使用动态配置而非 @Value 字段
+                String dynamicApiUrl = (mc != null) ? (String) mc.get("apiUrl") : apiUrl;
+
+                if (StrUtil.isBlank(dynamicApiUrl)) {
                     // Mock streaming
                     String simulated = "您好！我是 AI 助手。\n\n您问我：" + message;
                     for (int i = 0; i < simulated.length(); i += 5) {
@@ -400,7 +435,7 @@ public class AiChatServiceImpl implements AiChatService {
                         Thread.sleep(50);
                     }
                 } else {
-                    callAiApiStream(emitter, messages, fullContent);
+                    callAiApiStream(emitter, messages, fullContent, mc);
                 }
 
                 // Save chat record after streaming completes
@@ -410,6 +445,7 @@ public class AiChatServiceImpl implements AiChatService {
                 record.setQuestion(message);
                 record.setAnswer(fullContent.toString());
                 record.setConversationId(UUID.randomUUID().toString().replace("-", ""));
+                record.setModelId(modelId);
                 record.setStatus(1);
                 record.setCreatedAt(LocalDateTime.now());
                 chatRecordMapper.insert(record);
@@ -445,20 +481,25 @@ public class AiChatServiceImpl implements AiChatService {
         return emitter;
     }
 
-    private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages, StringBuilder fullContent) {
+    private void callAiApiStream(SseEmitter emitter, cn.hutool.json.JSONArray messages, StringBuilder fullContent,
+                                  Map<String, Object> modelConfig) {
+        String dynamicApiUrl = (modelConfig != null) ? (String) modelConfig.get("apiUrl") : apiUrl;
+        String dynamicApiKey = (modelConfig != null) ? (String) modelConfig.get("apiKey") : apiKey;
+        String dynamicModel = (modelConfig != null) ? (String) modelConfig.get("model") : model;
+
         HttpURLConnection conn = null;
         long startTime = System.currentTimeMillis();
         try {
             JSONObject body = new JSONObject();
-            body.set("model", model);
+            body.set("model", dynamicModel);
             body.set("messages", messages);
             body.set("temperature", 0.7);
             body.set("stream", true);
 
-            URL url = new URL(apiUrl);
+            URL url = new URL(dynamicApiUrl);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
-            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("Authorization", "Bearer " + dynamicApiKey);
             conn.setRequestProperty("Content-Type", MediaType.APPLICATION_JSON_VALUE);
             conn.setDoOutput(true);
             conn.setConnectTimeout(30000);
@@ -479,7 +520,9 @@ public class AiChatServiceImpl implements AiChatService {
                 throw new RuntimeException("AI API 返回 " + responseCode);
             }
 
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            // 256 字节缓冲区减少预读延迟
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8), 256)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     String trimmed = line.trim();
