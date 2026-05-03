@@ -13,18 +13,24 @@ public class UserDetailsImpl implements UserDetails {
     private final Long userId;
     private final String username;
     private final String password;
+    private final String role;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserDetailsImpl(Long userId, String username, String password,
-                           Collection<? extends GrantedAuthority> authorities) {
+                           Collection<? extends GrantedAuthority> authorities, String role) {
         this.userId = userId;
         this.username = username;
         this.password = password;
         this.authorities = authorities;
+        this.role = role;
     }
 
     public Long getUserId() {
         return userId;
+    }
+
+    public String getRole() {
+        return role;
     }
 
     @Override

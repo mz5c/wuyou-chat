@@ -90,6 +90,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .nickname(user.getNickname())
                 .email(user.getEmail())
                 .avatar(user.getAvatar())
+                .role(user.getRole())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .build();
