@@ -15,9 +15,10 @@ public interface SessionService {
      * @param userId   用户 ID
      * @param title    会话标题
      * @param roleType 角色类型
+     * @param modelId  模型 ID
      * @return 会话信息
      */
-    SessionDTO createSession(Long userId, String title, String roleType);
+    SessionDTO createSession(Long userId, String title, String roleType, Long modelId);
 
     /**
      * 获取会话详情
