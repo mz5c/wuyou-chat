@@ -244,6 +244,20 @@
         .message-bubble .katex {
             font-size: 1.1em;
         }
+        .model-select-thymeleaf {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+        .model-select-thymeleaf option {
+            color: #333;
+            background: white;
+        }
     </style>
 </head>
 <body>
@@ -254,6 +268,9 @@
                 <span id="username"></span>
                 <button class="logout-btn" onclick="logout()">退出</button>
             </div>
+            <select id="modelSelect" class="model-select-thymeleaf">
+                <option value="">加载中...</option>
+            </select>
         </div>
         <div class="chat-container" id="chatContainer">
             <div class="empty-state" id="emptyState">
@@ -274,6 +291,7 @@
         let token = getCookie('token');
         let userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
         let conversationId = localStorage.getItem('conversationId');
+        let currentModelId = null;
 
         // Initialize
         if (!token) {
@@ -305,6 +323,29 @@
             }
         }
 
+        async function loadModels() {
+            try {
+                const res = await fetch(`${API_BASE}/models/enabled`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (result.code === 200 && result.data.length > 0) {
+                    const select = document.getElementById('modelSelect');
+                    select.innerHTML = '';
+                    result.data.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name;
+                        select.appendChild(opt);
+                    });
+                    currentModelId = result.data[0].id;
+                    select.onchange = () => { currentModelId = Number(select.value); };
+                }
+            } catch (e) {
+                console.error('加载模型列表失败', e);
+            }
+        }
+
         function getCookie(name) {
             const nameEQ = name + '=';
             const ca = document.cookie.split(';');
@@ -323,6 +364,7 @@
             document.getElementById('username').textContent = userInfo.nickname || userInfo.username;
             document.getElementById('questionInput').disabled = false;
             document.getElementById('sendBtn').disabled = false;
+            loadModels();
             loadHistory();
         }
 
@@ -433,6 +475,9 @@
                 const requestBody = { question };
                 if (conversationId) {
                     requestBody.conversationId = conversationId;
+                }
+                if (currentModelId) {
+                    requestBody.modelId = currentModelId;
                 }
 
                 const response = await fetch(`${API_BASE}/chat/ask`, {
