@@ -29,6 +29,14 @@ public class ProfileController {
         this.jwtUtil = jwtUtil;
     }
 
+    @GetMapping
+    @Operation(summary = "获取用户信息")
+    public Result<UserInfoResponse> getUserInfo(@RequestHeader("Authorization") String token) {
+        Long userId = getUserIdFromToken(token);
+        UserInfoResponse userInfo = profileService.getUserInfo(userId);
+        return Result.success(userInfo);
+    }
+
     @PutMapping("/update")
     @Operation(summary = "更新用户资料")
     public Result<UserInfoResponse> updateProfile(

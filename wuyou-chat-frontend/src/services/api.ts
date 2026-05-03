@@ -127,7 +127,7 @@ export const api = {
 
   // 用户信息
   getUserInfo() {
-    return request<{ nickname: string; username: string; email?: string; role?: string }>('/user/profile');
+    return request<{ nickname: string; username: string; email?: string; role?: string }>('/profile');
   },
 
   // 模型管理

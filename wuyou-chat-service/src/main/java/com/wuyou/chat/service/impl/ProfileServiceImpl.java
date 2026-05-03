@@ -67,6 +67,15 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
+    public UserInfoResponse getUserInfo(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return convertToUserInfoResponse(user);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         User user = userMapper.selectById(userId);
