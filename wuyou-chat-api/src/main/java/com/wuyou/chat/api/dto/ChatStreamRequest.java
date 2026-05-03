@@ -25,4 +25,9 @@ public class ChatStreamRequest implements Serializable {
      */
     @NotBlank(message = "消息内容不能为空")
     private String message;
+
+    /**
+     * 使用的 AI 模型配置 ID，不传则使用默认
+     */
+    private Long modelId;
 }

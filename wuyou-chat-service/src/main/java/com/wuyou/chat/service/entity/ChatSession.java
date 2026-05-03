@@ -35,6 +35,11 @@ public class ChatSession {
     private String roleType;
 
     /**
+     * 会话默认模型配置 ID
+     */
+    private Long modelId;
+
+    /**
      * 状态：1-正常，0-删除
      */
     private Integer status;

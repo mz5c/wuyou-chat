@@ -40,6 +40,11 @@ public class SessionDTO implements Serializable {
     private String roleDisplayName;
 
     /**
+     * 会话默认模型配置 ID
+     */
+    private Long modelId;
+
+    /**
      * 状态
      */
     private Integer status;

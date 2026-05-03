@@ -21,4 +21,9 @@ public class SessionCreateRequest implements Serializable {
      * 角色类型（可选，不指定时使用默认角色）
      */
     private String roleType;
+
+    /**
+     * 会话默认 AI 模型配置 ID
+     */
+    private Long modelId;
 }
