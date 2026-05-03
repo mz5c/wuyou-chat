@@ -60,6 +60,11 @@ CLAUDE.md
 # Docs (generated specs/plans)
 docs/
 
+# Planning files (task management)
+task_plan.md
+findings.md
+progress.md
+
 # Superpowers (brainstorming visual companion)
 .superpowers/
 
