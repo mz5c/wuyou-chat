@@ -5,10 +5,16 @@ export function createSSEConnection(
   message: string,
   onChunk: (chunk: StreamChunk) => void,
   onError: (error: string) => void,
-  onDone: () => void
+  onDone: () => void,
+  modelId?: number | null
 ): AbortController {
   const controller = new AbortController();
   const token = localStorage.getItem('accessToken') || '';
+
+  const body: Record<string, any> = { sessionId, message };
+  if (modelId != null) {
+    body.modelId = modelId;
+  }
 
   fetch('/api/chat/ask/stream', {
     method: 'POST',
@@ -16,7 +22,7 @@ export function createSSEConnection(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ sessionId, message }),
+    body: JSON.stringify(body),
     signal: controller.signal,
   }).then(async (response) => {
     if (!response.body) {

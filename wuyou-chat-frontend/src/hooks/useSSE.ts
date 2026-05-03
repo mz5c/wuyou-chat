@@ -12,6 +12,7 @@ export function useSSE() {
     onChunk: (chunk: string) => void,
     onDone: () => void,
     onError: (err: string) => void,
+    modelId?: number | null,
   ) => {
     setIsStreaming(true);
     abortRef.current = createSSEConnection(
@@ -30,6 +31,7 @@ export function useSSE() {
         setIsStreaming(false);
         onDone();
       },
+      modelId,
     );
   }, []);
 
