@@ -7,15 +7,17 @@ interface Props {
   loading: boolean;
   error: string | null;
   nickname: string;
+  isAdmin?: boolean;
   onSelect: (id: number) => void;
   onCreate: () => void;
   onRename: (id: number, title: string) => void;
   onDelete: (id: number) => void;
   onRetry: () => void;
   onLogout: () => void;
+  onAdminClick?: () => void;
 }
 
-export function Sidebar({ sessions, activeId, loading, error, nickname, onSelect, onCreate, onRename, onDelete, onRetry, onLogout }: Props) {
+export function Sidebar({ sessions, activeId, loading, error, nickname, isAdmin, onSelect, onCreate, onRename, onDelete, onRetry, onLogout, onAdminClick }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -47,6 +49,9 @@ export function Sidebar({ sessions, activeId, loading, error, nickname, onSelect
       </div>
       <div className="sidebar-footer">
         <div className="sidebar-user">{nickname}</div>
+        {isAdmin && (
+          <button className="btn-admin" onClick={onAdminClick}>模型管理</button>
+        )}
         <button className="btn-logout" onClick={onLogout} title="退出登录">退出</button>
       </div>
     </aside>

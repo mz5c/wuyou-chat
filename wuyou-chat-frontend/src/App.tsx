@@ -3,7 +3,8 @@ import { Sidebar } from './components/Sidebar/Sidebar';
 import { ChatArea } from './components/Chat/ChatArea';
 import { LoginPage } from './components/LoginPage';
 import { useSessions } from './hooks/useSessions';
-import { isLoggedIn, clearToken, getUserNickname } from './services/api';
+import { AdminModelPage } from './components/Admin/AdminModelPage';
+import { isLoggedIn, clearToken, getUserNickname, getUserRole, saveUserRole } from './services/api';
 import type { Session } from './types';
 import './styles/global.css';
 
@@ -22,6 +23,7 @@ function App() {
   } = useSessions();
 
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const handleLogin = useCallback(() => {
     setAuthenticated(true);
@@ -69,6 +71,10 @@ function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  if (showAdmin) {
+    return <AdminModelPage onBack={() => setShowAdmin(false)} />;
+  }
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -77,12 +83,14 @@ function App() {
         loading={loading}
         error={error}
         nickname={getUserNickname()}
+        isAdmin={getUserRole() === 'admin'}
         onSelect={handleSelect}
         onCreate={handleCreate}
         onRename={renameSession}
         onDelete={handleDelete}
         onRetry={refresh}
         onLogout={handleLogout}
+        onAdminClick={() => setShowAdmin(true)}
       />
       <ChatArea
         session={currentSession}
