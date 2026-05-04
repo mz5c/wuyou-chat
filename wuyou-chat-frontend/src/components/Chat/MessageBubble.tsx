@@ -9,9 +9,7 @@ interface Props {
 export function MessageBubble({ role, content, createdAt }: Props) {
   return (
     <div className={`message ${role}`}>
-      <div className="message-avatar">
-        {role === 'user' ? '👤' : '🤖'}
-      </div>
+      <div className={`message-avatar ${role}`} />
       <div className="message-content">
         {role === 'assistant' ? (
           <MarkdownRenderer content={content} />
