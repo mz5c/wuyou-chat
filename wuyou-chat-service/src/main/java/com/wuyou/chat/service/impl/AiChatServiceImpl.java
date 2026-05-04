@@ -3,14 +3,19 @@ package com.wuyou.chat.service.impl;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wuyou.chat.api.dto.ChatRecordDTO;
 import com.wuyou.chat.api.dto.ChatRequest;
 import com.wuyou.chat.api.dto.ChatResponse;
-import com.wuyou.chat.api.dto.ChatRecordDTO;
+import com.wuyou.chat.api.enums.RoleType;
 import com.wuyou.chat.api.service.AiChatService;
+import com.wuyou.chat.api.service.ModelConfigService;
 import com.wuyou.chat.service.entity.ChatRecord;
+import com.wuyou.chat.service.entity.ChatSession;
 import com.wuyou.chat.service.entity.User;
 import com.wuyou.chat.service.exception.BusinessException;
 import com.wuyou.chat.service.mapper.ChatRecordMapper;
+import com.wuyou.chat.service.mapper.ChatSessionMapper;
 import com.wuyou.chat.service.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,34 +24,25 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.core.publisher.Mono;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import com.wuyou.chat.api.enums.RoleType;
-import com.wuyou.chat.service.entity.ChatSession;
-import com.wuyou.chat.service.mapper.ChatSessionMapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-
-import java.io.IOException;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CompletableFuture;
-
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import com.wuyou.chat.api.service.ModelConfigService;
-
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * AI 聊天服务实现
@@ -462,7 +458,7 @@ public class AiChatServiceImpl implements AiChatService {
                 emitter.complete();
 
             } catch (IllegalStateException e) {
-                log.debug("SSE 流式处理中断（客户端断开连接）");
+                log.debug("SSE 流式处理中断（客户端断开连接）", e);
                 emitter.complete();
             } catch (Exception e) {
                 log.error("SSE 流式处理失败", e);
@@ -495,7 +491,7 @@ public class AiChatServiceImpl implements AiChatService {
             body.set("messages", messages);
             body.set("temperature", 0.7);
             body.set("stream", true);
-
+            log.info("AI 流式调用请求参数，url: {}，入参: {}", dynamicApiUrl, body.toString());
             URL url = new URL(dynamicApiUrl);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
@@ -539,7 +535,6 @@ public class AiChatServiceImpl implements AiChatService {
 
                         JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
                         String rawContent = delta != null ? delta.getStr("content") : null;
-                        if (!"\n".equals(rawContent) && StrUtil.isBlank(rawContent)) continue;
 
                         String content = normalizeNewlines(rawContent);
                         fullContent.append(content);
@@ -548,7 +543,7 @@ public class AiChatServiceImpl implements AiChatService {
                         sendData.set("type", "text");
                         emitter.send(SseEmitter.event().name("message").data(sendData.toString()));
                     } catch (IllegalStateException e) {
-                        log.debug("SSE 连接已关闭（客户端断开）");
+                        log.debug("SSE 连接已关闭（客户端断开）", e);
                         break;
                     } catch (Exception e) {
                         log.warn("解析 AI 响应行失败: {}", data, e);
@@ -561,9 +556,13 @@ public class AiChatServiceImpl implements AiChatService {
         } catch (Exception e) {
             log.error("调用 AI 流式 API 失败", e);
             try {
-                emitter.send(SseEmitter.event().name("error").data("AI 服务错误"));
+                JSONObject sendData = new JSONObject();
+                sendData.set("content", "AI 服务暂时不可用，请稍后重试。");
+                sendData.set("type", "text");
+                emitter.send(SseEmitter.event().name("message").data(sendData.toString()));
+                fullContent.append("AI 服务暂时不可用，请稍后重试。");
             } catch (IOException ex) { /* ignore */ }
-            emitter.completeWithError(e);
+//            emitter.completeWithError(e);
         } finally {
             if (conn != null) {
                 conn.disconnect();
