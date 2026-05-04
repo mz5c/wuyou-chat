@@ -1,6 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import type { Components } from 'react-markdown';
 
 interface Props {
@@ -29,7 +32,11 @@ export function MarkdownRenderer({ content }: Props) {
 
   return (
     <div className="markdown-body">
-      <ReactMarkdown components={components}>
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={[remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+      >
         {content}
       </ReactMarkdown>
     </div>
