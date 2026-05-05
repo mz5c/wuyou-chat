@@ -13,7 +13,7 @@ export function MessageList({ messages, streamingContent, isStreaming }: Props) 
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+  }, [messages]);
 
   if (messages.length === 0 && !isStreaming) {
     return (
