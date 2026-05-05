@@ -34,24 +34,6 @@ export function MessageList({ messages, streamingContent, isStreaming, loading, 
     return () => el.removeEventListener('scroll', handler);
   }, []);  // empty deps — never re-register
 
-  if (loading) {
-    return (
-      <div className="messages-empty">
-        <div className="loading-spinner" />
-        <p>加载中...</p>
-      </div>
-    );
-  }
-
-  if (messages.length === 0 && !isStreaming) {
-    return (
-      <div className="messages-empty">
-        <h2>开始对话</h2>
-        <p>选择或创建一个会话，开始与 AI 助手交流</p>
-      </div>
-    );
-  }
-
   return (
     <div className="messages-list" ref={listRef}>
       {loadingMore && (
@@ -60,18 +42,32 @@ export function MessageList({ messages, streamingContent, isStreaming, loading, 
           <p>加载历史记录...</p>
         </div>
       )}
-      {messages.map(m => (
-        <MessageBubble key={m.id} role={m.role} content={m.content} createdAt={m.createdAt} />
-      ))}
-      {isStreaming && streamingContent && (
-        <MessageBubble role="assistant" content={streamingContent} />
-      )}
-      {isStreaming && !streamingContent && (
-        <div className="message ai">
-          <div className="message-bubble typing-indicator">
-            <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
-          </div>
+      {loading ? (
+        <div className="messages-empty">
+          <div className="loading-spinner" />
+          <p>加载中...</p>
         </div>
+      ) : messages.length === 0 && !isStreaming ? (
+        <div className="messages-empty">
+          <h2>开始对话</h2>
+          <p>选择或创建一个会话，开始与 AI 助手交流</p>
+        </div>
+      ) : (
+        <>
+          {messages.map(m => (
+            <MessageBubble key={m.id} role={m.role} content={m.content} createdAt={m.createdAt} />
+          ))}
+          {isStreaming && streamingContent && (
+            <MessageBubble role="assistant" content={streamingContent} />
+          )}
+          {isStreaming && !streamingContent && (
+            <div className="message ai">
+              <div className="message-bubble typing-indicator">
+                <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" />
+              </div>
+            </div>
+          )}
+        </>
       )}
       <div ref={bottomRef} />
     </div>
