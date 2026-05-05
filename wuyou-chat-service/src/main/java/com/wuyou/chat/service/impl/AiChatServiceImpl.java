@@ -535,6 +535,9 @@ public class AiChatServiceImpl implements AiChatService {
 
                         JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
                         String rawContent = delta != null ? delta.getStr("content") : null;
+                        if (null == rawContent) {
+                            continue;
+                        }
 
                         String content = normalizeNewlines(rawContent);
                         fullContent.append(content);
