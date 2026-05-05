@@ -6,14 +6,24 @@ interface Props {
   messages: Message[];
   streamingContent?: string;
   isStreaming: boolean;
+  loading?: boolean;
 }
 
-export function MessageList({ messages, streamingContent, isStreaming }: Props) {
+export function MessageList({ messages, streamingContent, isStreaming, loading }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  if (loading) {
+    return (
+      <div className="messages-empty">
+        <div className="loading-spinner" />
+        <p>加载中...</p>
+      </div>
+    );
+  }
 
   if (messages.length === 0 && !isStreaming) {
     return (

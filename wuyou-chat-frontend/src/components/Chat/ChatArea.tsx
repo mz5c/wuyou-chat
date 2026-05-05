@@ -15,6 +15,7 @@ interface Props {
 
 export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const { isStreaming, startStream, stopStream } = useSSE();
 
@@ -33,6 +34,7 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       return;
     }
     setMessages([]);
+    setLoadingHistory(true);
     api.getHistoryBySession(session.id).then((records: ChatRecord[]) => {
       const history: Message[] = [];
       for (const r of records) {
@@ -40,7 +42,9 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
         history.push({ id: `a-${r.id}`, role: 'assistant', content: r.answer, createdAt: r.createdAt });
       }
       setMessages(history);
-    }).catch(console.error);
+    }).catch(console.error).finally(() => {
+      setLoadingHistory(false);
+    });
   }, [session?.id]);
 
   useEffect(() => {
@@ -127,7 +131,7 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
           <RoleSelector currentRole={session.roleType} onChange={onRoleChange} />
         </div>
       </div>
-      <MessageList messages={messages} streamingContent={streamingContent} isStreaming={isStreaming} />
+      <MessageList messages={messages} streamingContent={streamingContent} isStreaming={isStreaming} loading={loadingHistory} />
       <ChatInput onSend={handleSend} disabled={isStreaming} />
     </div>
   );
