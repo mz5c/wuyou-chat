@@ -217,6 +217,27 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+        }
+        .typing-indicator .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #9ca3af;
+            display: inline-block;
+            animation: typingBounce 1.4s ease-in-out infinite;
+        }
+        .typing-indicator .dot:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); background: #9ca3af; }
+            30% { transform: translateY(-6px); background: #2563eb; }
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -264,6 +285,10 @@
         let token = getCookie('token');
         let userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
         let conversationId = localStorage.getItem('conversationId');
+        let historyPage = 1;
+        let historySize = 5;
+        let isLoadingHistory = false;
+        let hasMoreHistory = true;
         let currentModelId = null;
 
         // Initialize
@@ -338,6 +363,15 @@
             document.getElementById('questionInput').disabled = false;
             document.getElementById('sendBtn').disabled = false;
             loadModels();
+
+            const chatContainer = document.getElementById('chatContainer');
+            const scrollController = new AbortController();
+            chatContainer.addEventListener('scroll', () => {
+                if (chatContainer.scrollTop < 50 && !isLoadingHistory && hasMoreHistory) {
+                    loadHistory(historyPage + 1, true);
+                }
+            }, { signal: scrollController.signal });
+
             loadHistory();
         }
 
@@ -432,6 +466,34 @@
             return div.innerHTML;
         }
 
+        let typingDivId = null;
+
+        function addTypingIndicator() {
+            const chatContainer = document.getElementById('chatContainer');
+            const emptyState = document.getElementById('emptyState');
+            if (emptyState) emptyState.style.display = 'none';
+
+            const id = 'typing-' + Date.now();
+            const div = document.createElement('div');
+            div.className = 'message ai';
+            div.id = id;
+            div.innerHTML = '<div class="message-bubble"><div class="typing-indicator">'
+                + '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'
+                + '</div></div>';
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            typingDivId = id;
+            return id;
+        }
+
+        function removeTypingIndicator() {
+            if (typingDivId) {
+                const el = document.getElementById(typingDivId);
+                if (el) el.remove();
+                typingDivId = null;
+            }
+        }
+
         async function sendMessage() {
             const input = document.getElementById('questionInput');
             const question = input.value.trim();
@@ -439,10 +501,12 @@
 
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
+            input.disabled = true;
             sendBtn.innerHTML = '<span class="loading"></span>';
 
             addMessage(question, true);
             input.value = '';
+            addTypingIndicator();
 
             try {
                 const requestBody = { question };
@@ -464,65 +528,107 @@
                 const result = await response.json();
 
                 if (result.code === 200) {
+                    removeTypingIndicator();
                     conversationId = result.data.conversationId;
                     localStorage.setItem('conversationId', conversationId);
                     addMessage(result.data.answer, false, result.data.reasoningContent);
                 } else {
+                    removeTypingIndicator();
                     addMessage(`错误：${result.message}`, false);
                 }
             } catch (e) {
+                removeTypingIndicator();
                 addMessage('网络错误，请检查网络连接后重试', false);
             } finally {
                 sendBtn.textContent = '发送';
                 sendBtn.disabled = false;
+                input.disabled = false;
             }
         }
 
-        async function loadHistory() {
+        async function loadHistory(page = 1, append = false) {
+            if (isLoadingHistory) return;
+            isLoadingHistory = true;
+
             try {
-                const response = await fetch(`${API_BASE}/chat/history?page=1&size=1`, {
+                const response = await fetch(`${API_BASE}/chat/history?page=${page}&size=${historySize}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await response.json();
 
-                if (result.code === 200 && result.data.length > 0) {
-                    document.getElementById('emptyState').style.display = 'none';
-                    const chatContainer = document.getElementById('chatContainer');
-                    chatContainer.innerHTML = '';
-
-                    const record = result.data[0];
-                    // 用户消息
-                    const userDiv = document.createElement('div');
-                    userDiv.className = 'message user';
-                    const userTime = new Date(record.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-                    userDiv.innerHTML = `
-                        <div class="message-bubble">${renderMarkdown(record.question)}</div>
-                        <div class="message-time">${userTime}</div>
-                    `;
-                    chatContainer.appendChild(userDiv);
-                    renderMath(userDiv.querySelector('.message-bubble'));
-
-                    // AI 回答
-                    const aiDiv = document.createElement('div');
-                    aiDiv.className = 'message ai';
-                    let aiHtml = '';
-                    if (record.reasoningContent) {
-                        aiHtml += `<details class="reasoning-toggle"><summary>💭 思考过程</summary>
-                            <div class="reasoning-content">${escapeHtml(record.reasoningContent)}</div>
-                        </details>`;
-                    }
-                    aiHtml += `<div class="message-bubble">${renderMarkdown(record.answer)}</div>
-                        <div class="message-time">${userTime}</div>`;
-                    aiDiv.innerHTML = aiHtml;
-                    chatContainer.appendChild(aiDiv);
-                    renderMath(aiDiv.querySelector('.message-bubble'));
-
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                const list = result.data || [];
+                if (list.length === 0) {
+                    hasMoreHistory = false;
+                    return;
                 }
+
+                const emptyState = document.getElementById('emptyState');
+                if (emptyState) emptyState.style.display = 'none';
+
+                const chatContainer = document.getElementById('chatContainer');
+
+                const reversed = [...list].reverse();
+
+                if (!append) {
+                    hasMoreHistory = true;
+                    chatContainer.innerHTML = '';
+                    for (const record of reversed) {
+                        appendHistoryRecord(chatContainer, record);
+                    }
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                } else {
+                    const scrollHeightBefore = chatContainer.scrollHeight;
+                    const fragment = document.createDocumentFragment();
+                    for (const record of reversed) {
+                        appendHistoryRecord(fragment, record);
+                    }
+                    chatContainer.insertBefore(fragment, chatContainer.firstChild);
+                    const scrollHeightAfter = chatContainer.scrollHeight;
+                    chatContainer.scrollTop = scrollHeightAfter - scrollHeightBefore;
+                }
+
+                historyPage = page;
             } catch (e) {
                 console.error('加载历史记录失败', e);
-                addMessage('加载历史记录失败', false);
+                if (!append) {
+                    const chatContainer = document.getElementById('chatContainer');
+                    if (chatContainer) {
+                        const errDiv = document.createElement('div');
+                        errDiv.className = 'message ai';
+                        errDiv.innerHTML = '<div class="message-bubble">加载历史记录失败</div>';
+                        chatContainer.appendChild(errDiv);
+                    }
+                }
+            } finally {
+                isLoadingHistory = false;
             }
+        }
+
+        function appendHistoryRecord(container, record) {
+            const userTime = new Date(record.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+            const userDiv = document.createElement('div');
+            userDiv.className = 'message user';
+            userDiv.innerHTML = `
+                <div class="message-bubble">${renderMarkdown(record.question)}</div>
+                <div class="message-time">${userTime}</div>
+            `;
+            container.appendChild(userDiv);
+            renderMath(userDiv.querySelector('.message-bubble'));
+
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'message ai';
+            let aiHtml = '';
+            if (record.reasoningContent) {
+                aiHtml += `<details class="reasoning-toggle"><summary>💭 思考过程</summary>
+                    <div class="reasoning-content">${escapeHtml(record.reasoningContent)}</div>
+                </details>`;
+            }
+            aiHtml += `<div class="message-bubble">${renderMarkdown(record.answer)}</div>
+                <div class="message-time">${userTime}</div>`;
+            aiDiv.innerHTML = aiHtml;
+            container.appendChild(aiDiv);
+            renderMath(aiDiv.querySelector('.message-bubble'));
         }
     </script>
 </body>
