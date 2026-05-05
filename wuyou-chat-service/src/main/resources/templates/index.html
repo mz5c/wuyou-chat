@@ -21,7 +21,7 @@
         }
         .container {
             width: 100%;
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             background: #ffffff;
@@ -33,16 +33,22 @@
             padding: 12px 24px;
             background: #ffffff;
             border-bottom: 1px solid #e5e7eb;
+            flex-shrink: 0;
         }
         .header h1 {
             font-size: 16px;
             font-weight: 700;
             color: #111827;
         }
-        .user-info {
+        .header-right {
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .user-info span {
             font-size: 13px;
@@ -169,6 +175,7 @@
             background: #ffffff;
             border-top: 1px solid #e5e7eb;
             gap: 8px;
+            flex-shrink: 0;
         }
         .input-container input {
             flex: 1;
@@ -228,13 +235,15 @@
     <div class="container">
         <div class="header">
             <h1>友聊 AI 问答</h1>
-            <div class="user-info" id="userInfo" style="display: none;">
-                <span id="username"></span>
-                <button class="logout-btn" onclick="logout()">退出</button>
+            <div class="header-right">
+                <select id="modelSelect" class="model-select-thymeleaf">
+                    <option value="">加载中...</option>
+                </select>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span id="username"></span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
             </div>
-            <select id="modelSelect" class="model-select-thymeleaf">
-                <option value="">加载中...</option>
-            </select>
         </div>
         <div class="chat-container" id="chatContainer">
             <div class="empty-state" id="emptyState">
