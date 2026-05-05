@@ -121,8 +121,8 @@ export const api = {
   },
 
   // 聊天记录
-  getHistoryBySession(sessionId: number) {
-    return request<ChatRecord[]>(`/chat/record/list/${sessionId}`);
+  getHistoryBySession(sessionId: number, page = 1, size = 5) {
+    return request<ChatRecord[]>(`/chat/record/list/${sessionId}?page=${page}&size=${size}`);
   },
 
   // 用户信息

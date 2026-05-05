@@ -67,6 +67,15 @@ function App() {
     refresh();
   }, [refresh]);
 
+  // sessions 刷新后同步 currentSession（例如标题更新）
+  useEffect(() => {
+    if (!currentSession) return;
+    const updated = sessions.find(s => s.id === currentSession.id);
+    if (updated && updated.title !== currentSession.title) {
+      setCurrentSession(updated);
+    }
+  }, [sessions, currentSession]);
+
   if (!authenticated) {
     return <LoginPage onLogin={handleLogin} />;
   }

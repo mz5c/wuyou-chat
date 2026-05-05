@@ -201,15 +201,18 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
-    public List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId) {
+    public List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId, Integer page, Integer size) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
+        int offset = (page - 1) * size;
         List<ChatRecord> records = chatRecordMapper.selectList(
                 new LambdaQueryWrapper<ChatRecord>()
                         .eq(ChatRecord::getUserId, userId)
                         .eq(ChatRecord::getSessionId, sessionId)
                         .eq(ChatRecord::getStatus, 1)
-                        .orderByAsc(ChatRecord::getCreatedAt));
+                        .orderByDesc(ChatRecord::getCreatedAt)
+                        .last("LIMIT " + offset + ", " + size));
+        Collections.reverse(records);
         return records.stream().map(this::convertToChatRecordDTO).collect(Collectors.toList());
     }
 
@@ -260,7 +263,7 @@ public class AiChatServiceImpl implements AiChatService {
                                 .eq(ChatRecord::getUserId, userId)
                                 .eq(ChatRecord::getStatus, 1)
                                 .orderByDesc(ChatRecord::getCreatedAt)
-                                .last("LIMIT 10"));
+                                .last("LIMIT 5"));
 
                 // 反转成升序，保证 messages 数组时间正序
                 Collections.reverse(historyRecords);
@@ -273,7 +276,7 @@ public class AiChatServiceImpl implements AiChatService {
 
                     JSONObject aiMsg = new JSONObject();
                     aiMsg.set("role", "assistant");
-                    aiMsg.set("content", record.getAnswer());
+                    aiMsg.set("content", cleanAnswerForContext(record.getAnswer()));
                     messages.add(aiMsg);
                 }
             }
@@ -353,6 +356,15 @@ public class AiChatServiceImpl implements AiChatService {
                 .build();
     }
 
+    /**
+     * 清理回答内容用于上下文：移除 reasoning/think 标签及其内容，去除前导换行
+     */
+    private String cleanAnswerForContext(String answer) {
+        if (answer == null) return null;
+        String cleaned = REASONING_PATTERN.matcher(answer).replaceAll("").trim();
+        return cleaned.replaceAll("^\\n+", "").trim();
+    }
+
     @Override
     public SseEmitter askStream(Long userId, Long sessionId, String message, Long modelId) {
         User user = userMapper.selectById(userId);
@@ -394,7 +406,7 @@ public class AiChatServiceImpl implements AiChatService {
                                 .eq(ChatRecord::getSessionId, sessionId)
                                 .eq(ChatRecord::getStatus, 1)
                                 .orderByAsc(ChatRecord::getCreatedAt)
-                                .last("LIMIT 10"));
+                                .last("LIMIT 5"));
                 for (ChatRecord record : history) {
                     JSONObject um = new JSONObject();
                     um.set("role", "user");
@@ -402,7 +414,7 @@ public class AiChatServiceImpl implements AiChatService {
                     messages.add(um);
                     JSONObject am = new JSONObject();
                     am.set("role", "assistant");
-                    am.set("content", record.getAnswer());
+                    am.set("content", cleanAnswerForContext(record.getAnswer()));
                     messages.add(am);
                 }
 

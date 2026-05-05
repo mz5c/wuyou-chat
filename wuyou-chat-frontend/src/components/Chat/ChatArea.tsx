@@ -16,6 +16,9 @@ interface Props {
 export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [historyPage, setHistoryPage] = useState(1);
   const [streamingContent, setStreamingContent] = useState('');
   const { isStreaming, startStream, stopStream } = useSSE();
 
@@ -27,6 +30,7 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
   sessionRef.current = session;
   const onFirstMessageRef = useRef(onFirstMessage);
   onFirstMessageRef.current = onFirstMessage;
+  const isFirstMessageRef = useRef(false);
 
   useEffect(() => {
     if (!session) {
@@ -34,8 +38,10 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       return;
     }
     setMessages([]);
+    setHistoryPage(1);
+    setHasMoreHistory(true);
     setLoadingHistory(true);
-    api.getHistoryBySession(session.id).then((records: ChatRecord[]) => {
+    api.getHistoryBySession(session.id, 1, 5).then((records: ChatRecord[]) => {
       const history: Message[] = [];
       for (const r of records) {
         history.push({ id: `q-${r.id}`, role: 'user', content: r.question, createdAt: r.createdAt });
@@ -46,6 +52,31 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       setLoadingHistory(false);
     });
   }, [session?.id]);
+
+  const loadMoreHistory = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    if (!currentSession || loadingMore || !hasMoreHistory) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = historyPage + 1;
+      const records = await api.getHistoryBySession(currentSession.id, nextPage, 5);
+      if (records.length === 0) {
+        setHasMoreHistory(false);
+        return;
+      }
+      const history: Message[] = [];
+      for (const r of records) {
+        history.push({ id: `q-${r.id}`, role: 'user', content: r.question, createdAt: r.createdAt });
+        history.push({ id: `a-${r.id}`, role: 'assistant', content: r.answer, createdAt: r.createdAt });
+      }
+      setMessages(prev => [...history, ...prev]);
+      setHistoryPage(nextPage);
+    } catch (e) {
+      console.error('加载更多历史记录失败', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [historyPage, loadingMore, hasMoreHistory]);
 
   useEffect(() => {
     setCurrentModelId(session?.modelId ?? null);
@@ -62,9 +93,9 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
       createdAt: new Date().toISOString(),
     };
     setMessages(prev => {
-      // 首次消息触发标题更新
+      // 标记首次消息，流完成后触发标题刷新
       if (prev.length === 0) {
-        onFirstMessageRef.current();
+        isFirstMessageRef.current = true;
       }
       return [...prev, userMsg];
     });
@@ -92,6 +123,11 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
             content: finalContent,
             createdAt: new Date().toISOString(),
           }]);
+        }
+        // 流完成，后端已更新标题，触发刷新
+        if (isFirstMessageRef.current) {
+          isFirstMessageRef.current = false;
+          onFirstMessageRef.current();
         }
       },
       // onError
@@ -131,7 +167,7 @@ export function ChatArea({ session, onRoleChange, onFirstMessage }: Props) {
           <RoleSelector currentRole={session.roleType} onChange={onRoleChange} />
         </div>
       </div>
-      <MessageList messages={messages} streamingContent={streamingContent} isStreaming={isStreaming} loading={loadingHistory} />
+      <MessageList messages={messages} streamingContent={streamingContent} isStreaming={isStreaming} loading={loadingHistory} loadingMore={loadingMore} onScrollToTop={loadMoreHistory} />
       <ChatInput onSend={handleSend} disabled={isStreaming} />
     </div>
   );

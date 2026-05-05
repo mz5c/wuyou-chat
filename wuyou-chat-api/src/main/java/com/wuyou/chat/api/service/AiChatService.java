@@ -66,5 +66,5 @@ public interface AiChatService {
      * @param sessionId 会话 ID
      * @return 聊天记录列表
      */
-    List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId);
+    List<ChatRecordDTO> getHistoryBySession(Long userId, Long sessionId, Integer page, Integer size);
 }

@@ -57,9 +57,11 @@ public class ChatController {
     @GetMapping("/record/list/{sessionId}")
     @Operation(summary = "按会话获取聊天记录")
     public Result<List<ChatRecordDTO>> getHistoryBySession(@RequestHeader("Authorization") String token,
-                                                            @PathVariable Long sessionId) {
+                                                            @PathVariable Long sessionId,
+                                                            @RequestParam(defaultValue = "1") Integer page,
+                                                            @RequestParam(defaultValue = "5") Integer size) {
         Long userId = getUserIdFromToken(token);
-        List<ChatRecordDTO> records = aiChatService.getHistoryBySession(userId, sessionId);
+        List<ChatRecordDTO> records = aiChatService.getHistoryBySession(userId, sessionId, page, size);
         return Result.success(records);
     }
 
