@@ -23,9 +23,14 @@ public class ChatResponse implements Serializable {
     private String conversationId;
 
     /**
-     * AI 回答
+     * AI 回答（过滤思考内容后的纯回答）
      */
     private String answer;
+
+    /**
+     * AI 原始回答内容
+     */
+    private String rawResponse;
 
     /**
      * 思考过程（AI 的推理内容，与最终回答分开）

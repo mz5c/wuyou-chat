@@ -124,7 +124,7 @@ public class AiChatServiceImpl implements AiChatService {
         ChatRecord record = new ChatRecord();
         record.setUserId(userId);
         record.setQuestion(request.getQuestion());
-        record.setAnswer(aiResponse.getAnswer());
+        record.setAnswer(aiResponse.getRawResponse());
         record.setConversationId(conversationId);
         record.setModelId(request.getModelId());
         record.setStatus(1);
@@ -353,6 +353,7 @@ public class AiChatServiceImpl implements AiChatService {
         return ChatResponse.builder()
                 .answer(cleanAnswer)
                 .reasoningContent(reasoningContent)
+                .rawResponse(rawResponse)
                 .build();
     }
 
