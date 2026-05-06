@@ -219,7 +219,7 @@ public class AiChatServiceImpl implements AiChatService {
     // 匹配 DeepSeek R1 风格 或通用 <reasoning> 标签
     private static final Pattern REASONING_PATTERN = Pattern.compile(
             "\\s*<reasoning>([\\s\\S]*?)</reasoning>\\s*" +
-            "|\\s*<think>([\\s\\S]*?)</think>\\s*",
+            "|([\\s\\S]*?)</think>\\s*",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -292,7 +292,7 @@ public class AiChatServiceImpl implements AiChatService {
             body.set("messages", messages);
             body.set("temperature", 0.7);
 
-            log.info("调用 AI API: {}", dynamicApiUrl);
+            log.info("调用 AI API: {}, body: {}", dynamicApiUrl, body.toString());
 
             // 发送请求（设置 30 秒超时）
             String response = webClient.post()
